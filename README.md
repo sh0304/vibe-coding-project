@@ -35,6 +35,78 @@
 
 ---
 
+## 📊 데이터베이스 구조 (ERD)
+
+프로젝트의 주요 테이블 간 관계는 다음과 같습니다. (Mermaid 다이어그램)
+
+```mermaid
+erDiagram
+    POSITION ||--o{ EMPLOYEE : "has"
+    ORGANIZATION ||--o{ EMPLOYEE : "belongs to"
+    ORGANIZATION ||--o| ORGANIZATION : "parent"
+    EMPLOYEE ||--o| USER : "mapped to"
+    EMPLOYEE ||--o{ APPROVAL : "requests"
+    EMPLOYEE ||--o{ APPROVAL_STEP : "approves"
+    EMPLOYEE ||--o{ PROJECT_ASSIGNMENT : "assigned to"
+    APPROVAL ||--o{ APPROVAL_STEP : "contains"
+    PROJECT ||--o{ PROJECT_ASSIGNMENT : "has"
+
+    POSITION {
+        string code PK
+        string name
+        int level
+    }
+    ORGANIZATION {
+        string code PK
+        string name
+        string parent_code FK
+        datetime valid_from
+        datetime valid_to
+        boolean is_active
+    }
+    EMPLOYEE {
+        string employee_code PK
+        string name
+        string org_code FK
+        string position_code FK
+        datetime valid_from
+        datetime valid_to
+        boolean is_active
+    }
+    USER {
+        string id PK
+        string email UK
+        string employee_code FK
+        string role
+    }
+    APPROVAL {
+        string id PK
+        string title
+        string status
+        string author_employee_code FK
+        int amount
+    }
+    APPROVAL_STEP {
+        string id PK
+        string approval_id FK
+        int step_order
+        string status
+        string approver_employee_code FK
+    }
+    PROJECT {
+        string id PK
+        string name
+    }
+    PROJECT_ASSIGNMENT {
+        string id PK
+        string project_id FK
+        string employee_code FK
+        float man_month
+    }
+```
+
+---
+
 ## 📂 프로젝트 구조 (Project Structure)
 
 프로젝트는 도메인 중심의 **Feature-based Architecture**를 따릅니다.
