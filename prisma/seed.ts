@@ -55,20 +55,20 @@ async function main() {
     { employeeCode: 'EMP001', name: '김대표', organizationCode: 'ORG_ROOT', position: 'POS_EXEC', email: 'admin@company.com', role: 'admin' },
 
     // 개발본부
-    { employeeCode: 'EMP_HEAD', name: '홍본부', organizationCode: 'ORG_DEV_DEPT', position: 'POS_DEPT_HEAD', email: 'emp_head@vibe.com', role: 'user' },
+    { employeeCode: 'EMP_HEAD', name: '홍본부', organizationCode: 'ORG_DEV_DEPT', position: 'POS_DEPT_HEAD', email: 'head@company.com', role: 'user' },
 
     // 프론트엔드팀
-    { employeeCode: 'EMP_LEAD', name: '이팀장', organizationCode: 'ORG_FE_TEAM', position: 'POS_TEAM_LEAD', email: 'emp_lead@vibe.com', role: 'user' },
-    { employeeCode: 'EMP_STAFF1', name: '김사원', organizationCode: 'ORG_FE_TEAM', position: 'POS_STAFF', email: 'emp_staff1@vibe.com', role: 'user' },
-    { employeeCode: 'EMP_STAFF2', name: '이사원', organizationCode: 'ORG_FE_TEAM', position: 'POS_STAFF', email: 'emp_staff2@vibe.com', role: 'user' },
+    { employeeCode: 'EMP_LEAD', name: '이팀장', organizationCode: 'ORG_FE_TEAM', position: 'POS_TEAM_LEAD', email: 'lead1@company.com', role: 'user' },
+    { employeeCode: 'EMP_STAFF1', name: '김사원', organizationCode: 'ORG_FE_TEAM', position: 'POS_STAFF', email: 'user1@company.com', role: 'user' },
+    { employeeCode: 'EMP_STAFF2', name: '이사원', organizationCode: 'ORG_FE_TEAM', position: 'POS_STAFF', email: 'user2@company.com', role: 'user' },
 
     // 백엔드팀
-    { employeeCode: 'EMP_BE_LEAD', name: '최백엔', organizationCode: 'ORG_BE_TEAM', position: 'POS_TEAM_LEAD', email: 'emp_be_l@vibe.com', role: 'user' },
-    { employeeCode: 'EMP_BE_STAFF1', name: '정백엔', organizationCode: 'ORG_BE_TEAM', position: 'POS_STAFF', email: 'emp_be_s1@vibe.com', role: 'user' },
+    { employeeCode: 'EMP_BE_LEAD', name: '최백엔', organizationCode: 'ORG_BE_TEAM', position: 'POS_TEAM_LEAD', email: 'lead2@company.com', role: 'user' },
+    { employeeCode: 'EMP_BE_STAFF1', name: '정백엔', organizationCode: 'ORG_BE_TEAM', position: 'POS_STAFF', email: 'user3@company.com', role: 'user' },
 
     // 인사팀
-    { employeeCode: 'EMP_HR_LEAD', name: '박인사', organizationCode: 'ORG_HR_TEAM', position: 'POS_TEAM_LEAD', email: 'emp_hr_l@vibe.com', role: 'user' },
-    { employeeCode: 'EMP_HR_STAFF1', name: '차인사', organizationCode: 'ORG_HR_TEAM', position: 'POS_STAFF', email: 'emp_hr_s1@vibe.com', role: 'user' },
+    { employeeCode: 'EMP_HR_LEAD', name: '박인사', organizationCode: 'ORG_HR_TEAM', position: 'POS_TEAM_LEAD', email: 'lead3@company.com', role: 'user' },
+    { employeeCode: 'EMP_HR_STAFF1', name: '차인사', organizationCode: 'ORG_HR_TEAM', position: 'POS_STAFF', email: 'user4@company.com', role: 'user' },
   ];
 
   for (const emp of employees) {
@@ -100,11 +100,15 @@ async function main() {
       });
     }
 
-    // User 중복 방지
+    // User 중복 방지 (employeeCode 기반 식별로 이메일 변경 허용)
+    const userWhere = emp.employeeCode 
+      ? { employeeCode: emp.employeeCode } 
+      : { email: emp.email };
+
     await prisma.user.upsert({
-      where: { email: emp.email },
+      where: userWhere as any,
       update: {
-        employeeCode: emp.employeeCode,
+        email: emp.email,
         name: emp.name,
         role: emp.role,
       },
