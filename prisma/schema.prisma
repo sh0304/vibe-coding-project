@@ -1,0 +1,149 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "library"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Position {
+  id            String   @id @default(uuid())
+  code          String   @unique @map("code")          // POS_STAFF, POS_TEAM_LEAD 등 논리 식별자
+  name          String                                 // "사원", "팀장" 등 표시명
+  level         Int                                    // 직급 레벨 (숫자가 낮을수록 높음)
+  approvalGroup String   @map("approval_group")        // GENERAL, TEAM_LEAD, DEPT_HEAD
+  isActive      Boolean  @default(true) @map("is_active")
+
+  @@index([approvalGroup])
+  @@map("positions")
+}
+
+model Organization {
+  id          String    @id @default(uuid())
+  code        String    @map("org_code")      // 부서의 변하지 않는 논리적 식별자
+  name        String                          // 부서명 (이력 변경 가능)
+  parentCode  String?   @map("parent_code")   // 상위 부서 논리 식별자
+  validFrom   DateTime  @default(now()) @map("valid_from")
+  validTo     DateTime? @map("valid_to")      // 이력이 닫히면 날짜가 채워짐
+  isActive    Boolean   @default(true) @map("is_active")
+  deletedAt   DateTime? @map("deleted_at")
+  
+  @@index([code, isActive])
+  @@index([validFrom, validTo])
+  @@map("organizations")
+}
+
+model Employee {
+  id               String    @id @default(uuid())
+  employeeCode     String    @map("employee_code")  // 사원의 변하지 않는 사번 (논리 식별자)
+  name             String                           // 사원명
+  organizationCode String    @map("org_code")       // 소속 부서 논리 식별자
+  position         String    @map("position_code")  // Position.code 참조
+  validFrom        DateTime  @default(now()) @map("valid_from")
+  validTo          DateTime? @map("valid_to")
+  isActive         Boolean   @default(true) @map("is_active")
+  deletedAt        DateTime? @map("deleted_at")
+
+  @@index([employeeCode, isActive])
+  @@index([validFrom, validTo])
+  @@index([organizationCode])
+  @@map("employees")
+}
+
+model Approval {
+  id                   String         @id @default(uuid())
+  category             String         @default("LEAVE")      // LEAVE, EXPENSE, CERTIFICATE
+  title                String                                // 예: "연차 신청 (홍길동)"
+  content              String
+  status               String         @default("PENDING")    // PENDING, IN_PROGRESS, APPROVED, REJECTED
+  authorEmployeeCode   String         @map("author_employee_code") // 기안자 사번
+
+  // SCD Snapshot Fields
+  snapshotAuthorName   String         @map("snapshot_author_name") // 기안 당시 이름
+  snapshotOrgName      String         @map("snapshot_org_name")    // 기안 당시 부서명
+  snapshotPosition     String         @map("snapshot_position")    // 기안 당시 직급
+  snapshotApproverLine String?        @map("snapshot_approver_line") // 기안 당시 결재선 JSON
+
+  startDate            DateTime?      @map("start_date")
+  endDate              DateTime?      @map("end_date")
+  createdAt            DateTime       @default(now()) @map("created_at")
+
+  steps                ApprovalStep[]
+
+  @@index([authorEmployeeCode])
+  @@index([status, createdAt])
+  @@map("approvals")
+}
+
+model ApprovalStep {
+  id                       String    @id @default(uuid())
+  approvalId               String    @map("approval_id")
+  approval                 Approval  @relation(fields: [approvalId], references: [id], onDelete: Cascade)
+  stepOrder                Int       @map("step_order")          // 1: 팀장, 2: 인사팀
+  role                     String                                // TEAM_LEAD, HR_DEPT
+  snapshotApproverName     String    @map("snapshot_approver_name")     // 박제된 결재자 이름
+  snapshotApproverPosition String    @map("snapshot_approver_position") // 박제된 결재자 직급
+  approverEmployeeCode     String?   @map("approver_employee_code")     // 실제 결재자 사번 (권한 체크용)
+  status                   String    @default("WAITING")         // WAITING, APPROVED, REJECTED
+  comment                  String?                               // 결재 의견
+  actionAt                 DateTime? @map("action_at")           // 결재 처리 시각
+
+  @@index([approvalId, stepOrder])
+  @@map("approval_steps")
+}
+
+model Project {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  assignments ProjectAssignment[]
+
+  @@map("projects")
+}
+
+model ProjectAssignment {
+  id             String   @id @default(uuid())
+  projectId      String   @map("project_id")
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  employeeCode   String   @map("employee_code")
+  startDate      DateTime @map("start_date")
+  endDate        DateTime @map("end_date")
+  manMonth       Float    @default(1.0) @map("man_month")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([employeeCode])
+  @@index([projectId])
+  @@map("project_assignments")
+}
+
+// ===== Simplified Auth (Direct Management) =====
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String    // Hashed password
+  name          String
+  role          String    @default("user") // admin, user
+  employeeCode  String?   @unique @map("employee_code") // Link to Employee.employeeCode
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+model BudgetPolicy {
+  id           String   @id @default(uuid())
+  category     String   @unique // "WELFARE", "EDUCATION", "ACTIVITY" 등 항목
+  unitPrice    Int      @map("unit_price") // 인당 기준 단가
+  description  String?
+  isActive     Boolean  @default(true) @map("is_active")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("budget_policies")
+}

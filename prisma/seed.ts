@@ -1,0 +1,131 @@
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+async function main() {
+  console.log('🌱 Seeding VIBE Company structure with more employees...');
+
+  // 1. Positions (직급)
+  const positions = [
+    { code: 'POS_STAFF', name: '사원', level: 60, approvalGroup: 'GENERAL' },
+    { code: 'POS_ASSOCIATE', name: '대리', level: 40, approvalGroup: 'GENERAL' },
+    { code: 'POS_TEAM_LEAD', name: '팀장', level: 20, approvalGroup: 'TEAM_LEAD' },
+    { code: 'POS_DEPT_HEAD', name: '본부장', level: 10, approvalGroup: 'DEPT_HEAD' },
+    { code: 'POS_EXEC', name: '대표이사', level: 5, approvalGroup: 'EXEC' },
+  ];
+
+  for (const pos of positions) {
+    // Prisma Client가 동기화되지 않았을 경우를 대비해 any 캐스팅 활용
+    await (prisma as any).position.upsert({
+      where: { code: pos.code },
+      update: pos,
+      create: pos,
+    });
+  }
+
+  // 2. Organizations (부서)
+  const organizations = [
+    { code: 'ORG_ROOT', name: '(주)VIBE', parentCode: null },
+    { code: 'ORG_DEV_DEPT', name: '개발본부', parentCode: 'ORG_ROOT' },
+    { code: 'ORG_FE_TEAM', name: '프론트엔드팀', parentCode: 'ORG_DEV_DEPT' },
+    { code: 'ORG_BE_TEAM', name: '백엔드팀', parentCode: 'ORG_DEV_DEPT' },
+    { code: 'ORG_QA_TEAM', name: '품질관리팀', parentCode: 'ORG_DEV_DEPT' },
+    { code: 'ORG_HR_TEAM', name: '인사팀', parentCode: 'ORG_ROOT' },
+  ];
+
+  for (const org of organizations) {
+    await prisma.organization.upsert({
+      where: { id: org.code },
+      update: {
+        name: org.name,
+        parentCode: org.parentCode === 'none' ? null : org.parentCode,
+        isActive: true,
+      },
+      create: {
+        ...org,
+        id: org.code,
+        isActive: true,
+      },
+    });
+  }
+
+  // 3. Employees & Users
+  const employees = [
+    // 최상위 (회사 직속)
+    { employeeCode: 'EMP001', name: '김대표', organizationCode: 'ORG_ROOT', position: 'POS_EXEC', email: 'admin@company.com', role: 'admin' },
+    
+    // 개발본부
+    { employeeCode: 'EMP_HEAD', name: '홍본부', organizationCode: 'ORG_DEV_DEPT', position: 'POS_DEPT_HEAD', email: 'emp_head@vibe.com', role: 'user' },
+    
+    // 프론트엔드팀
+    { employeeCode: 'EMP_LEAD', name: '이팀장', organizationCode: 'ORG_FE_TEAM', position: 'POS_TEAM_LEAD', email: 'emp_lead@vibe.com', role: 'user' },
+    { employeeCode: 'EMP_STAFF1', name: '김사원', organizationCode: 'ORG_FE_TEAM', position: 'POS_STAFF', email: 'emp_staff1@vibe.com', role: 'user' },
+    { employeeCode: 'EMP_STAFF2', name: '이사원', organizationCode: 'ORG_FE_TEAM', position: 'POS_STAFF', email: 'emp_staff2@vibe.com', role: 'user' },
+    
+    // 백엔드팀
+    { employeeCode: 'EMP_BE_LEAD', name: '최백엔', organizationCode: 'ORG_BE_TEAM', position: 'POS_TEAM_LEAD', email: 'emp_be_l@vibe.com', role: 'user' },
+    { employeeCode: 'EMP_BE_STAFF1', name: '정백엔', organizationCode: 'ORG_BE_TEAM', position: 'POS_STAFF', email: 'emp_be_s1@vibe.com', role: 'user' },
+    
+    // 인사팀
+    { employeeCode: 'EMP_HR_LEAD', name: '박인사', organizationCode: 'ORG_HR_TEAM', position: 'POS_TEAM_LEAD', email: 'emp_hr_l@vibe.com', role: 'user' },
+    { employeeCode: 'EMP_HR_STAFF1', name: '차인사', organizationCode: 'ORG_HR_TEAM', position: 'POS_STAFF', email: 'emp_hr_s1@vibe.com', role: 'user' },
+  ];
+
+  for (const emp of employees) {
+    // Employee 조회 (SCD 이므로 isActive인 것 기준)
+    const existingEmp = await prisma.employee.findFirst({
+        where: { employeeCode: emp.employeeCode, isActive: true }
+    });
+
+    if (!existingEmp) {
+        await prisma.employee.create({
+            data: {
+              employeeCode: emp.employeeCode,
+              name: emp.name,
+              organizationCode: emp.organizationCode,
+              position: emp.position,
+              isActive: true,
+              validFrom: new Date('2026-01-01'),
+            },
+          });
+    } else {
+        // 기존 사원이 다른 소속/직급이라면 업데이트 (테스트 환경 동기화)
+        await prisma.employee.update({
+            where: { id: existingEmp.id },
+            data: {
+                organizationCode: emp.organizationCode,
+                position: emp.position,
+                name: emp.name // 이름도 혹시 모르니 동기화
+            }
+        });
+    }
+
+    // User 중복 방지
+    await prisma.user.upsert({
+        where: { email: emp.email },
+        update: {
+            employeeCode: emp.employeeCode,
+            name: emp.name,
+            role: emp.role,
+        },
+        create: {
+            email: emp.email,
+            password: emp.email === 'admin@company.com' ? 'admin123' : 'password123',
+            name: emp.name,
+            role: emp.role,
+            employeeCode: emp.employeeCode,
+        }
+    });
+  }
+
+  console.log('✅ Seeding completed with more staff members.');
+}
+
+main()
+  .catch((e) => {
+    console.error('❌ Seeding failed:', e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
