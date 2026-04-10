@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { 
+  ApprovalCategory,
   ApprovalStatus, 
-  ApprovalStepStatus 
+  ApprovalStepStatus,
+  getBudgetCategoryLabel
 } from "../schemas";
 import { 
   Card, 
@@ -99,10 +101,19 @@ export function ApprovalList({ approvals, title }: ApprovalListProps) {
                         </p>
                       </div>
 
-                      {item.category === 'LEAVE' && item.startDate && (
+                      {item.category === ApprovalCategory.LEAVE && item.startDate && (
                         <div className="flex items-center gap-2 text-xs font-bold text-indigo-600 bg-indigo-50/50 w-fit px-3 py-1.5 rounded-lg border border-indigo-100">
                           <Calendar className="h-3.5 w-3.5" />
                           {new Date(item.startDate).toLocaleDateString()} ~ {new Date(item.endDate).toLocaleDateString()}
+                        </div>
+                      )}
+
+                      {item.category === ApprovalCategory.EXPENSE && item.amount && (
+                        <div className="flex items-center gap-2 text-xs font-bold text-amber-600 bg-amber-50/50 w-fit px-3 py-1.5 rounded-lg border border-amber-100">
+                          <PlayCircle className="h-3.5 w-3.5" />
+                          {item.budgetCategory ? getBudgetCategoryLabel(item.budgetCategory) : '기타 항목'}
+                          <span className="mx-1 text-slate-300">|</span>
+                          {item.amount.toLocaleString()}원
                         </div>
                       )}
                     </div>

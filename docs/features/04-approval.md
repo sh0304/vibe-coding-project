@@ -16,39 +16,44 @@
 ### 4.1 Database Schema (Prisma)
 ```prisma
 model Approval {
-  id                String         @id @default(uuid())
-  category          String         // LEAVE, EXPENSE, CERT
-  title             String
-  content           String?
-  status            String         @default("PENDING") // PENDING, IN_PROGRESS, APPROVED, REJECTED
+  id                    String         @id @default(uuid())
+  category              String         // LEAVE, EXPENSE, CERT
+  title                 String
+  content               String?
+  status                String         @default("PENDING") // PENDING, IN_PROGRESS, APPROVED, REJECTED
   
   // SCD Snapshot Fields (기안 시점의 정보 박제)
-  authorEmployeeCode String        @map("author_code")
-  snapshotAuthorName String        @map("snapshot_author_name")
-  snapshotOrgName    String        @map("snapshot_org_name")
-  snapshotPosition   String        @map("snapshot_position")
+  authorEmployeeCode    String         @map("author_code")
+  snapshotAuthorName    String         @map("snapshot_author_name")
+  snapshotOrgName       String         @map("snapshot_org_name")
+  snapshotPosition      String         @map("snapshot_position")
+  snapshotApproverLine  String?        @map("snapshot_approver_line") // 기안 당시 결재선 JSON (이름/직급/순서)
   
-  // 카테고리별 추가 데이터 (JSON 또는 별도 필드)
-  data              Json?          // { startDate, endDate, amount, etc. }
+  // 카테고리별 명시적 데이터 필드
+  startDate             DateTime?      @map("start_date")
+  endDate               DateTime?      @map("end_date")
+  amount                Int?           @map("amount")              // 지출 금액
+  budgetCategory        String?        @map("budget_category")     // WELFARE, EDUCATION, ACTIVITY
   
-  steps             ApprovalStep[]
-  createdAt         DateTime       @default(now()) @map("created_at")
+  steps                 ApprovalStep[]
+  createdAt             DateTime       @default(now()) @map("created_at")
+
+  @@map("approvals")
 }
 
 model ApprovalStep {
-  id                    String   @id @default(uuid())
-  approvalId            String   @map("approval_id")
-  stepOrder             Int      @map("step_order")
-  role                  String   // TEAM_LEAD, HR_DEPT 등
-  status                String   @default("WAITING") // WAITING, APPROVED, REJECTED
-  
-  // 결재자 스냅샷
-  approverCode          String   @map("approver_code")
-  snapshotApproverName  String   @map("snapshot_approver_name")
-  snapshotApproverPos   String   @map("snapshot_approver_pos")
-  
-  actionAt              DateTime? @map("action_at")
-  comment               String?
+  id                       String    @id @default(uuid())
+  approvalId               String    @map("approval_id")
+  stepOrder                Int       @map("step_order")          // 1: 팀장, 2: 인사팀
+  role                     String                                // TEAM_LEAD, HR_DEPT
+  snapshotApproverName     String    @map("snapshot_approver_name")     // 박제된 결재자 이름
+  snapshotApproverPosition String    @map("snapshot_approver_position") // 박제된 결재자 직급
+  approverEmployeeCode     String?   @map("approver_employee_code")     // 실제 결재자 사번 (권한 체크용)
+  status                   String    @default("WAITING")         // WAITING, APPROVED, REJECTED
+  comment                  String?                               // 결재 의견
+  actionAt                 DateTime? @map("action_at")           // 결재 처리 시각
+
+  @@map("approval_steps")
 }
 ```
 
@@ -58,7 +63,7 @@ model ApprovalStep {
     *   `category`: `LEAVE`, `EXPENSE`, `CERT` 중 하나 필수 선택.
     *   **조건부 검증**:
         *   `LEAVE`인 경우: 시작일과 종료일이 필수이며, 종료일은 시작일 이후여야 함.
-        *   `EXPENSE`인 경우: 금액(Int)이 필수이며 0보다 커야 함.
+        *   `EXPENSE`인 경우: 금액(Int) 및 예산 항목(`budgetCategory`) 필수 선택.
 *   **결재 액션 검증**:
     *   **순서 보장**: 이전 단계(`stepOrder-1`)가 `APPROVED` 상태가 아닌 경우 현재 단계의 승인 처리를 차단합니다.
     *   **권한 검증**: 현재 로그인한 사원의 `code`가 해당 Step의 `approverCode`와 일치해야 합니다.

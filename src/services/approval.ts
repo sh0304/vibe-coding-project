@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { ApprovalStatus, ApprovalStepStatus } from "@/features/approval/schemas";
+import { startOfMonth, endOfMonth } from "date-fns";
 import { revalidatePath } from "next/cache";
 
 /**
@@ -47,13 +48,13 @@ export const ApprovalService = {
     // 1차 결재자 선정 (소속 팀장)
     if (position.approvalGroup === "GENERAL") {
       const teamLead = await prisma.employee.findFirst({
-        where: { 
-          organizationCode: employee.organizationCode, 
+        where: {
+          organizationCode: employee.organizationCode,
           isActive: true,
-          position: "POS_TEAM_LEAD" 
+          position: "POS_TEAM_LEAD"
         }
       });
-      
+
       if (teamLead) {
         const leadPos = await prisma.position.findUnique({ where: { code: teamLead.position } });
         steps.push({
@@ -64,7 +65,7 @@ export const ApprovalService = {
           employeeCode: teamLead.employeeCode
         });
       }
-    } 
+    }
     // 기안자가 팀장인 경우 (본부장 조회)
     else if (position.approvalGroup === "TEAM_LEAD") {
       if (organization.parentCode) {
@@ -75,7 +76,7 @@ export const ApprovalService = {
             position: "POS_DEPT_HEAD"
           }
         });
-        
+
         if (deptHead) {
           const headPos = await prisma.position.findUnique({ where: { code: deptHead.position } });
           steps.push({
@@ -122,27 +123,73 @@ export const ApprovalService = {
     authorCode: string;
     startDate?: Date;
     endDate?: Date;
+    amount?: number;
+    budgetCategory?: string;
   }) {
-    const { category, title, content, authorCode, startDate, endDate } = params;
+    const { category, title, content, authorCode, startDate, endDate, amount: requestAmount, budgetCategory } = params;
 
     return await prisma.$transaction(async (tx) => {
-      const author = await tx.employee.findFirst({
+      const itx = tx as unknown as typeof prisma;
+      const author = await itx.employee.findFirst({
         where: { employeeCode: authorCode, isActive: true },
       });
 
       if (!author) throw new Error("기안자 정보를 찾을 수 없습니다.");
 
       const [org, pos] = await Promise.all([
-        tx.organization.findFirst({ where: { code: author.organizationCode, isActive: true } }),
-        tx.position.findUnique({ where: { code: author.position } })
+        itx.organization.findFirst({ where: { code: author.organizationCode, isActive: true } }),
+        itx.position.findUnique({ where: { code: author.position } })
       ]);
 
       // 결재선 조회 (서비스 로직 재사용 가능)
       const line = await this.getApprovalLine(authorCode);
       if (line.length === 0) throw new Error("결재선 구성원이 존재하지 않습니다.");
 
-      // 1. 결재 문서 생성
-      const doc = await tx.approval.create({
+      // 1-1. 비용청구 예산 체크
+      if (category === "EXPENSE" && requestAmount) {
+        const targetDate = new Date();
+        const monthStart = startOfMonth(targetDate);
+        const monthEnd = endOfMonth(targetDate);
+
+        // 해당 부서의 당시 인원 수 (SCD Type 2 기준 활성 인원)
+        const headcount = await itx.employee.count({
+          where: {
+            organizationCode: author.organizationCode,
+            isActive: true,
+            validFrom: { lte: targetDate },
+            OR: [{ validTo: null }, { validTo: { gt: targetDate } }]
+          }
+        });
+
+        // 예산 정책 총합
+        const policies = await itx.budgetPolicy.findMany({ where: { isActive: true } });
+        const totalUnitAmount = policies.reduce((acc, p) => acc + p.unitPrice, 0);
+        const teamBudget = headcount * totalUnitAmount;
+
+        // 부서원 사번 목록 추출
+        const deptEmpCodes = (await itx.employee.findMany({
+          where: { organizationCode: author.organizationCode, isActive: true },
+          select: { employeeCode: true }
+        })).map(e => e.employeeCode);
+
+        const deptExpenses = (await itx.approval.findMany({
+          where: {
+            category: "EXPENSE",
+            status: "APPROVED",
+            authorEmployeeCode: { in: deptEmpCodes },
+            createdAt: { gte: monthStart, lte: monthEnd }
+          },
+          select: { amount: true }
+        })) as unknown as { amount: number | null }[];
+
+        const currentSpent = deptExpenses.reduce((acc, curr) => acc + (curr.amount || 0), 0);
+        if (currentSpent + requestAmount > teamBudget) {
+          throw new Error(`부서 예산이 초과되었습니다. (가용: ${(teamBudget - currentSpent).toLocaleString()}원, 요청: ${requestAmount.toLocaleString()}원)`);
+        }
+      }
+
+      // 1-2. 메인 문서 생성
+      const doc = await itx.approval.create({
         data: {
           category,
           title,
@@ -154,13 +201,15 @@ export const ApprovalService = {
           snapshotApproverLine: JSON.stringify(line),
           startDate,
           endDate,
+          amount: requestAmount,
+          budgetCategory,
           status: ApprovalStatus.PENDING,
         }
       });
 
       // 2. 결재 단계 생성
-      await Promise.all(line.map(step => 
-        tx.approvalStep.create({
+      await Promise.all(line.map(step =>
+        itx.approvalStep.create({
           data: {
             approvalId: doc.id,
             stepOrder: step.stepOrder,
@@ -190,8 +239,9 @@ export const ApprovalService = {
     const { approvalId, stepOrder, employeeCode, status, comment } = params;
 
     return await prisma.$transaction(async (tx) => {
+      const itx = tx as unknown as typeof prisma;
       // 1. 현재 결재 단계 확인
-      const currentStep = await tx.approvalStep.findFirst({
+      const currentStep = await itx.approvalStep.findFirst({
         where: { approvalId, stepOrder },
       });
 
@@ -204,7 +254,7 @@ export const ApprovalService = {
       }
 
       // 2. 현재 단계 업데이트
-      await tx.approvalStep.update({
+      await itx.approvalStep.update({
         where: { id: currentStep.id },
         data: {
           status: status === "APPROVED" ? ApprovalStepStatus.APPROVED : ApprovalStepStatus.REJECTED,
@@ -214,7 +264,7 @@ export const ApprovalService = {
       });
 
       // 3. 다음 단계 및 전체 상태 결정
-      const nextStep = await tx.approvalStep.findFirst({
+      const nextStep = await itx.approvalStep.findFirst({
         where: { approvalId, stepOrder: stepOrder + 1 },
       });
 
@@ -227,12 +277,51 @@ export const ApprovalService = {
       }
 
       // 4. 메인 문서 상태 업데이트
-      const updatedDoc = await tx.approval.update({
+      const updatedDoc = await itx.approval.update({
         where: { id: approvalId },
         data: { status: finalStatus as any }
       });
 
       return updatedDoc;
+    });
+  },
+
+  /**
+   * 사용자 권한 및 조건에 맞는 결재 목록을 조회합니다.
+   */
+  async getApprovals(params: {
+    employeeCode?: string;
+    isAdmin: boolean;
+    mode: "TO_APPROVE" | "MY_REQUESTS";
+  }) {
+    const { employeeCode, isAdmin, mode } = params;
+
+    if (isAdmin && mode === "TO_APPROVE") {
+      return await prisma.approval.findMany({
+        include: { steps: true },
+        orderBy: { createdAt: "desc" }
+      });
+    }
+
+    if (mode === "TO_APPROVE") {
+      return await prisma.approval.findMany({
+        where: {
+          steps: {
+            some: {
+              approverEmployeeCode: employeeCode,
+              status: "WAITING"
+            }
+          }
+        },
+        include: { steps: true },
+        orderBy: { createdAt: "desc" }
+      });
+    }
+
+    return await prisma.approval.findMany({
+      where: { authorEmployeeCode: employeeCode },
+      include: { steps: true },
+      orderBy: { createdAt: "desc" }
     });
   }
 };

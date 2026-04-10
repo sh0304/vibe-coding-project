@@ -1,6 +1,52 @@
 import { prisma } from "@/lib/prisma";
+import { TreeNode } from "@/features/organization/components/OrganizationTree";
 
 export const OrganizationService = {
+  /**
+   * 전체 조직/사원 트리 데이터를 구성합니다 (공통 로직)
+   */
+  async getOrganizationTree(): Promise<TreeNode[]> {
+    const [orgs, employees, positions] = await Promise.all([
+      prisma.organization.findMany({ where: { isActive: true } }),
+      prisma.employee.findMany({ where: { isActive: true } }),
+      prisma.position.findMany({ where: { isActive: true }, orderBy: { level: 'asc' } }),
+    ]);
+
+    const buildTree = (parentCode: string | null = null): TreeNode[] => {
+      const currentOrgs = orgs
+        .filter((o: any) => o.parentCode === parentCode)
+        .sort((a: any, b: any) => a.name.localeCompare(b.name));
+
+      return currentOrgs.map((org: any) => {
+        const orgEmployees: TreeNode[] = employees
+          .filter((e: any) => e.organizationCode === org.code)
+          .map((e: any) => {
+            const pos = positions.find((p: any) => p.code === (e as any).position);
+            return {
+              id: e.id,
+              code: e.employeeCode,
+              name: e.name,
+              type: 'employee' as const,
+              position: pos?.name || '사원',
+              level: pos?.level || 999,
+            };
+          })
+          .sort((a: any, b: any) => (a.level ?? 999) - (b.level ?? 999));
+
+        const subOrgs = buildTree(org.code);
+
+        return {
+          id: org.id,
+          code: org.code,
+          name: org.name,
+          type: 'org' as const,
+          children: [...orgEmployees, ...subOrgs],
+        };
+      });
+    };
+
+    return buildTree(null);
+  },
   /**
    * 신규 부서를 생성합니다.
    */

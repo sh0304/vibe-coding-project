@@ -6,9 +6,11 @@ import {
   ApprovalCategory,
   ApprovalFormValues,
   approvalFormSchema,
-  getCategoryLabel
+  getCategoryLabel,
+  getBudgetCategoryLabel
 } from "../schemas";
 import { submitApproval, getApprovalLine } from "../actions";
+import { getBudgetPolicies } from "../../statistics/actions";
 import {
   Card,
   CardContent,
@@ -51,21 +53,44 @@ export function ApprovalForm({ currentEmployeeCode, onSuccess, onCancel }: Appro
   const [content, setContent] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [amount, setAmount] = useState("");
+  const [budgetCategory, setBudgetCategory] = useState<string>("");
 
-  // 페이지 로드 시 결재선 미리보기 로드
+  // 예산 정책 데이터
+  const [policies, setPolicies] = useState<any[]>([]);
+
+  // 페이지 로드 시 결재선 및 예산 정책 로드
   useEffect(() => {
-    async function fetchLine() {
+    async function fetchData() {
       setIsLineLoading(true);
-      const res = await getApprovalLine(currentEmployeeCode);
-      if (res.success && res.data) {
-        setApprovalLine(res.data);
+      const [lineRes, policyRes] = await Promise.all([
+        getApprovalLine(currentEmployeeCode),
+        getBudgetPolicies()
+      ]);
+
+      if (lineRes.success && lineRes.data) {
+        setApprovalLine(lineRes.data);
       } else {
-        setError(res.error || "결재선을 불러오지 못했습니다.");
+        setError(lineRes.error || "결재선을 불러오지 못했습니다.");
       }
+
+      if (policyRes.success && policyRes.data) {
+        setPolicies(policyRes.data);
+      }
+      
       setIsLineLoading(false);
     }
-    fetchLine();
+    fetchData();
   }, [currentEmployeeCode]);
+
+  const handleBudgetCategoryChange = (val: string | null) => {
+    if (!val) return;
+    setBudgetCategory(val);
+    const policy = policies.find(p => p.category === val);
+    if (policy) {
+      setAmount(policy.unitPrice.toString());
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,6 +102,8 @@ export function ApprovalForm({ currentEmployeeCode, onSuccess, onCancel }: Appro
       content,
       startDate: category === ApprovalCategory.LEAVE ? startDate : undefined,
       endDate: category === ApprovalCategory.LEAVE ? endDate : undefined,
+      amount: category === ApprovalCategory.EXPENSE ? parseInt(amount) : undefined,
+      budgetCategory: category === ApprovalCategory.EXPENSE ? budgetCategory : undefined,
     };
 
     // 클라이언트 유효성 검사
@@ -235,6 +262,38 @@ export function ApprovalForm({ currentEmployeeCode, onSuccess, onCancel }: Appro
                     className="h-12 rounded-xl bg-white border-slate-200 focus:ring-indigo-500"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
+
+            {category === ApprovalCategory.EXPENSE && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 bg-amber-50/50 rounded-3xl border border-amber-100 border-dashed animate-in slide-in-from-top-4 duration-500">
+                <div className="space-y-3">
+                  <Label htmlFor="budgetCategory" className="text-sm font-bold text-slate-700 ml-1">예산 항목 *</Label>
+                  <Select value={budgetCategory} onValueChange={handleBudgetCategoryChange}>
+                    <SelectTrigger id="budgetCategory" className="h-12 rounded-xl bg-white border-slate-200 focus:ring-amber-500">
+                      <SelectValue>
+                        {budgetCategory ? getBudgetCategoryLabel(budgetCategory) : "항목 선택"}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="WELFARE">복리후생비</SelectItem>
+                      <SelectItem value="EDUCATION">교육훈련비</SelectItem>
+                      <SelectItem value="ACTIVITY">부서활동비</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-3">
+                  <Label htmlFor="amount" className="text-sm font-bold text-slate-700 ml-1">청구 금액 (원) *</Label>
+                  <Input
+                    id="amount"
+                    type="number"
+                    placeholder="0"
+                    className="h-12 rounded-xl bg-slate-50 border-slate-200 focus:ring-amber-500 font-bold text-slate-500"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    readOnly
                   />
                 </div>
               </div>

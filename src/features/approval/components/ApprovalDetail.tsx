@@ -1,12 +1,16 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { differenceInDays } from "date-fns";
 import { useRouter } from "next/navigation";
 import { 
+  ApprovalCategory,
   ApprovalStatus, 
   ApprovalStepStatus,
   ApprovalDocument,
-  ApprovalStep
+  ApprovalStep,
+  getCategoryLabel,
+  getBudgetCategoryLabel
 } from "../schemas";
 import { processApprovalStep } from "../actions";
 import { ApprovalStatusBadge } from "./ApprovalStatusBadge";
@@ -27,7 +31,8 @@ import {
   XCircle, 
   AlertTriangle,
   MessageSquare,
-  ArrowLeft
+  ArrowLeft,
+  FileSpreadsheet
 } from "lucide-react";
 
 interface ApprovalDetailProps {
@@ -100,7 +105,7 @@ export function ApprovalDetail({ approval, currentEmployeeCode }: ApprovalDetail
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 mb-2">
                     <Badge variant="outline" className="bg-white text-indigo-600 border-indigo-100 font-bold">
-                      {approval.category === 'LEAVE' ? '휴가신청' : approval.category}
+                      {getCategoryLabel(approval.category)}
                     </Badge>
                     <span className="text-xs font-medium text-slate-400">
                       {new Date(approval.createdAt).toLocaleString()} 상신
@@ -113,6 +118,54 @@ export function ApprovalDetail({ approval, currentEmployeeCode }: ApprovalDetail
               </div>
             </CardHeader>
             <CardContent className="p-8 space-y-8">
+              {/* 항목별 핵심 정보 (휴가기간/비용내역) - 상단 배치 */}
+              {approval.category === ApprovalCategory.LEAVE && (
+                <div className="flex items-center gap-6 p-6 bg-indigo-50/50 rounded-3xl border border-indigo-100 animate-in slide-in-from-top-2 duration-500">
+                  <div className="h-14 w-14 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200">
+                    <Calendar className="h-7 w-7 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-indigo-700 uppercase tracking-widest mb-1">Leave Period</p>
+                    <div className="flex items-center gap-3">
+                      <p className="text-xl font-black text-slate-900">
+                        {approval.startDate ? new Date(approval.startDate).toLocaleDateString() : '-'} ~ {approval.endDate ? new Date(approval.endDate).toLocaleDateString() : '-'}
+                      </p>
+                      {approval.startDate && approval.endDate && (
+                        <Badge className="bg-indigo-100 text-indigo-600 border-none font-black px-2 py-0.5 rounded-lg text-[11px]">
+                          {differenceInDays(new Date(approval.endDate), new Date(approval.startDate)) + 1}일
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {approval.category === ApprovalCategory.EXPENSE && (
+                <div className="relative overflow-hidden group animate-in slide-in-from-top-2 duration-500">
+                  <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-orange-500/10 rounded-3xl" />
+                  <div className="relative flex items-center gap-6 p-7 bg-white/40 backdrop-blur-sm rounded-3xl border border-amber-100 shadow-sm transition-all hover:shadow-md">
+                    <div className="h-16 w-16 bg-amber-500 rounded-2xl flex items-center justify-center shadow-lg shadow-amber-200 transition-transform group-hover:scale-110 duration-500">
+                      <FileSpreadsheet className="h-8 w-8 text-white" />
+                    </div>
+                    <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="space-y-1.5">
+                        <p className="text-[10px] font-black text-amber-600 uppercase tracking-[0.2em]">Expenses Category</p>
+                        <p className="text-xl font-black text-slate-900 flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-amber-500" />
+                          {approval.budgetCategory ? getBudgetCategoryLabel(approval.budgetCategory) : '기타 항목'}
+                        </p>
+                      </div>
+                      <div className="space-y-1.5">
+                        <p className="text-[10px] font-black text-amber-600 uppercase tracking-[0.2em]">Statement of Amount</p>
+                        <p className="text-2xl font-black text-indigo-600 tracking-tight">
+                          {approval.amount?.toLocaleString()} <span className="text-sm text-slate-400 font-bold ml-0.5">KRW</span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* 기안자 정보 (Snapshot) */}
               <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 relative group overflow-hidden">
                 <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
@@ -160,18 +213,6 @@ export function ApprovalDetail({ approval, currentEmployeeCode }: ApprovalDetail
                   {approval.content}
                 </div>
               </div>
-
-              {approval.category === 'LEAVE' && (
-                <div className="flex items-center gap-4 p-6 bg-indigo-50/50 rounded-3xl border border-indigo-100">
-                  <Calendar className="h-8 w-8 text-indigo-600 opacity-50" />
-                  <div>
-                    <p className="text-[10px] font-black text-indigo-700 uppercase mb-1">휴가 예정 기간</p>
-                    <p className="text-lg font-black text-slate-900">
-                      {approval.startDate ? new Date(approval.startDate).toLocaleDateString() : '-'} ~ {approval.endDate ? new Date(approval.endDate).toLocaleDateString() : '-'}
-                    </p>
-                  </div>
-                </div>
-              )}
             </CardContent>
           </Card>
         </div>

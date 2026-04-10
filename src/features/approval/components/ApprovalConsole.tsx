@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useMemo } from 'react';
+import { differenceInDays } from 'date-fns';
 import {
   Card,
   CardContent,
@@ -25,10 +26,12 @@ import {
   MessageSquare
 } from "lucide-react";
 import { 
+  ApprovalCategory,
   ApprovalStatus, 
   ApprovalStepStatus, 
   getCategoryLabel, 
   getCategoryTheme,
+  getBudgetCategoryLabel,
   ApprovalDocument,
   ApprovalStep
 } from "../schemas";
@@ -96,9 +99,9 @@ export function ApprovalConsole({ toApprove, myRequests, isAdmin, currentUserCod
   );
 
   return (
-    <div className="flex h-[calc(100vh-200px)] min-h-[600px] gap-6 animate-in fade-in duration-500">
+    <div className="flex flex-1 min-h-0 gap-6 animate-in fade-in duration-500">
       {/* 좌측: 문서 목록 패널 */}
-      <div className="w-1/3 min-w-[380px] flex flex-col gap-4">
+      <div className="w-1/3 min-w-[380px] flex flex-col gap-4 min-h-0">
         <div className="flex flex-col gap-3 shrink-0">
           {!isAdmin && (
             <NewApprovalModal currentEmployeeCode={currentUserCode} />
@@ -115,9 +118,9 @@ export function ApprovalConsole({ toApprove, myRequests, isAdmin, currentUserCod
           </div>
         </div>
 
-        <div className="flex-1 overflow-hidden border border-slate-200 rounded-3xl bg-white shadow-sm flex flex-col">
+        <div className="flex-1 min-h-0 overflow-hidden border border-slate-200 rounded-3xl bg-white shadow-sm flex flex-col">
           {isAdmin ? (
-            <div className="flex-1 flex flex-col">
+            <div className="flex-1 min-h-0 flex flex-col">
               <div className="px-6 py-5 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between shadow-sm">
                 <div className="flex items-center gap-3">
                   <div className="h-6 w-1 bg-indigo-600 rounded-full" />
@@ -127,7 +130,7 @@ export function ApprovalConsole({ toApprove, myRequests, isAdmin, currentUserCod
                   ALL RECORDS
                 </Badge>
               </div>
-              <div className="flex-1 overflow-y-auto custom-scrollbar p-2">
+              <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-2">
                 <DocumentList
                   documents={filteredToApprove}
                   selectedId={selectedId}
@@ -136,7 +139,7 @@ export function ApprovalConsole({ toApprove, myRequests, isAdmin, currentUserCod
               </div>
             </div>
           ) : (
-            <Tabs defaultValue="to-approve" className="flex-1 flex flex-col">
+            <Tabs defaultValue="to-approve" className="flex-1 min-h-0 flex flex-col">
               <TabsList className="grid grid-cols-2 bg-slate-50/50 p-1.5 h-14 rounded-none border-b border-slate-100">
                 <TabsTrigger
                   value="to-approve"
@@ -164,7 +167,7 @@ export function ApprovalConsole({ toApprove, myRequests, isAdmin, currentUserCod
                 </TabsTrigger>
               </TabsList>
 
-              <div className="flex-1 overflow-y-auto custom-scrollbar p-2">
+              <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-2">
                 <TabsContent value="to-approve" className="m-0 focus-visible:ring-0">
                   <DocumentList
                     documents={filteredToApprove}
@@ -186,8 +189,8 @@ export function ApprovalConsole({ toApprove, myRequests, isAdmin, currentUserCod
       </div>
 
       {/* 우측: 상세 정보 패널 */}
-      <div className="flex-1 flex flex-col gap-4 overflow-hidden relative">
-        <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar h-full">
+      <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden relative">
+        <div className="flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar h-full">
           {!selectedDoc ? (
             <div className="h-full flex items-center justify-center border-2 border-dashed border-slate-200 rounded-[2.5rem] bg-white text-slate-400">
               <div className="text-center space-y-4">
@@ -241,6 +244,52 @@ export function ApprovalConsole({ toApprove, myRequests, isAdmin, currentUserCod
                 </CardHeader>
 
                 <CardContent className="p-8 space-y-10">
+                  {/* 항목별 핵심 정보 (휴가기간/비용내역) - 상단 배치 */}
+                  {selectedDoc.category === ApprovalCategory.LEAVE && (
+                    <div className="flex items-center gap-6 p-6 bg-indigo-50/50 rounded-3xl border border-indigo-100 animate-in slide-in-from-top-2 duration-500">
+                      <div className="h-14 w-14 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200">
+                        <Calendar className="h-7 w-7 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-indigo-700 uppercase tracking-widest mb-1">Leave Period</p>
+                        <div className="flex items-center gap-3">
+                          <p className="text-xl font-black text-slate-900">
+                            {selectedDoc.startDate ? new Date(selectedDoc.startDate).toLocaleDateString() : '-'} ~ {selectedDoc.endDate ? new Date(selectedDoc.endDate).toLocaleDateString() : '-'}
+                          </p>
+                          {selectedDoc.startDate && selectedDoc.endDate && (
+                            <Badge className="bg-indigo-100 text-indigo-600 border-none font-black px-2 py-0.5 rounded-lg text-[11px]">
+                              {differenceInDays(new Date(selectedDoc.endDate), new Date(selectedDoc.startDate)) + 1}일
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedDoc.category === ApprovalCategory.EXPENSE && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-amber-50/50 rounded-3xl border border-amber-100 animate-in slide-in-from-top-2 duration-500">
+                      <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 bg-amber-500 rounded-xl flex items-center justify-center shadow-md">
+                          <FileSpreadsheet className="h-6 w-6 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-[9px] font-black text-amber-600 uppercase tracking-wider">Category</p>
+                          <p className="text-base font-black text-slate-900 leading-tight">
+                            {selectedDoc.budgetCategory ? getBudgetCategoryLabel(selectedDoc.budgetCategory) : '기타 항목'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 border-l border-amber-100 pl-6">
+                        <div>
+                          <p className="text-[9px] font-black text-amber-600 uppercase tracking-wider">Amount</p>
+                          <p className="text-xl font-black text-indigo-600">
+                            {selectedDoc.amount?.toLocaleString()} <span className="text-xs text-slate-400 font-bold ml-0.5">KRW</span>
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-4">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">결재 내용</p>
                     <div className="p-8 bg-slate-50/80 rounded-[2rem] border border-slate-100 min-h-[150px] leading-relaxed text-slate-700 font-medium whitespace-pre-wrap">

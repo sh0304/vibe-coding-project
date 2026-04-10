@@ -37,3 +37,24 @@ export interface OrganizationStat {
   actualExpense: number;
   ratio: number;
 }
+
+// 사원별 상세 통계 (Drill-down 용)
+export interface MemberStat {
+  employeeCode: string;
+  name: string;
+  position: string;
+  orgName: string;
+  plannedBudget: number;
+  actualExpense: number;
+  remainingBudget: number;
+}
+
+// 부서 상세 통계 패키지
+export interface TeamDetailStat {
+  orgCode: string;
+  orgName: string;
+  totalPlanned: number;
+  totalActual: number;
+  totalHeadcount: number;
+  members: MemberStat[];
+}

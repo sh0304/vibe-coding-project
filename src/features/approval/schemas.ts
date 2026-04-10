@@ -22,6 +22,18 @@ export function getCategoryLabel(category: string | ApprovalCategory): string {
 }
 
 /**
+ * 예산 항목 코드에 따른 한글 레이블 반환
+ */
+export function getBudgetCategoryLabel(category: string): string {
+  switch (category) {
+    case "WELFARE": return "복리후생비";
+    case "EDUCATION": return "교육훈련비";
+    case "ACTIVITY": return "부서활동비";
+    default: return category;
+  }
+}
+
+/**
  * 결재 종류에 따른 테마 반환
  */
 export const getCategoryTheme = (category: string, isSelected: boolean) => {
@@ -65,9 +77,12 @@ export const approvalFormSchema = z.object({
   content: z.string()
     .min(10, "상세 내용은 최소 10자 이상 입력해주세요.")
     .max(500, "상세 내용은 최대 500자까지 입력 가능합니다."),
-  // 휴가 관련 필드 (조건부 검증은 하단에서 refinements로 처리)
+  // 휴가 관련 필드
   startDate: z.string().optional().or(z.literal("")),
   endDate: z.string().optional().or(z.literal("")),
+  // 비용 관련 필드
+  amount: z.number().int().positive("금액은 0보다 커야 합니다.").optional(),
+  budgetCategory: z.string().optional(),
 }).refine((data) => {
   if (data.category === ApprovalCategory.LEAVE) {
     return !!data.startDate && !!data.endDate;
@@ -84,6 +99,14 @@ export const approvalFormSchema = z.object({
 }, {
   message: "종료일은 시작일보다 빠를 수 없습니다.",
   path: ["endDate"],
+}).refine((data) => {
+  if (data.category === ApprovalCategory.EXPENSE) {
+    return !!data.amount && !!data.budgetCategory;
+  }
+  return true;
+}, {
+  message: "비용 항목과 금액을 입력해주세요.",
+  path: ["amount"],
 });
 
 export type ApprovalFormValues = z.infer<typeof approvalFormSchema>;
@@ -134,6 +157,8 @@ export interface ApprovalDocument {
   snapshotApproverLine?: string | null;
   startDate?: Date | string | null;
   endDate?: Date | string | null;
+  amount?: number | null;
+  budgetCategory?: string | null;
   createdAt: Date | string;
   steps: ApprovalStep[];
   authorName?: string; // Virtual field for UI

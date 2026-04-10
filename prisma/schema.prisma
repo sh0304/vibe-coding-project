@@ -71,6 +71,8 @@ model Approval {
 
   startDate            DateTime?      @map("start_date")
   endDate              DateTime?      @map("end_date")
+  amount               Int?           @map("amount")
+  budgetCategory       String?        @map("budget_category")
   createdAt            DateTime       @default(now()) @map("created_at")
 
   steps                ApprovalStep[]
