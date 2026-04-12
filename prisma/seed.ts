@@ -122,7 +122,65 @@ async function main() {
     });
   }
 
-  console.log('✅ Seeding completed with more staff members.');
+  // 4. Historical Data for History Explorer Testing (SCD Type 2 Mockups)
+  console.log('📜 Adding historical records for history explorer testing...');
+
+  // 과거 데이터: 김사원 (EMP_STAFF1)의 이전 기록 (인사팀 소속이었음)
+  // 기존 레코드 검색해서 중복 방지
+  const oldEmp1 = await prisma.employee.findFirst({
+    where: { employeeCode: 'EMP_STAFF1', organizationCode: 'ORG_HR_TEAM' }
+  });
+  if (!oldEmp1) {
+    await prisma.employee.create({
+      data: {
+        employeeCode: 'EMP_STAFF1',
+        name: '김사원',
+        organizationCode: 'ORG_HR_TEAM',
+        position: 'POS_STAFF',
+        isActive: false,
+        validFrom: new Date('2025-01-01'),
+        validTo: new Date('2025-12-31'),
+      }
+    });
+  }
+
+  // 과거 데이터: 프론트엔드팀 (ORG_FE_TEAM)의 이전 이름 (웹개발팀)
+  const oldOrg1 = await prisma.organization.findFirst({
+    where: { code: 'ORG_FE_TEAM', isActive: false }
+  });
+  if (!oldOrg1) {
+    await prisma.organization.create({
+      data: {
+        id: 'ORG_FE_TEAM_OLD', // ID는 유니크해야 함 (SCD의 경우 보통 UUID나 별도 키)
+        code: 'ORG_FE_TEAM',
+        name: '웹개발팀',
+        parentCode: 'ORG_DEV_DEPT',
+        isActive: false,
+        validFrom: new Date('2025-01-01'),
+        validTo: new Date('2025-12-31'),
+      }
+    });
+  }
+
+  // 과거 데이터: 정백엔 (EMP_BE_STAFF1)이 작년에는 사원이 아닌 대리였다는 컨셉 등
+  const oldEmp2 = await prisma.employee.findFirst({
+    where: { employeeCode: 'EMP_BE_STAFF1', position: 'POS_ASSOCIATE' }
+  });
+  if (!oldEmp2) {
+    await prisma.employee.create({
+      data: {
+        employeeCode: 'EMP_BE_STAFF1',
+        name: '정백엔',
+        organizationCode: 'ORG_BE_TEAM',
+        position: 'POS_ASSOCIATE',
+        isActive: false,
+        validFrom: new Date('2025-01-01'),
+        validTo: new Date('2025-06-30'),
+      }
+    });
+  }
+
+  console.log('✅ Seeding completed with staff members and history.');
 }
 
 main()

@@ -43,6 +43,7 @@ export interface MemberStat {
   employeeCode: string;
   name: string;
   position: string;
+  positionLevel: number;
   orgName: string;
   plannedBudget: number;
   actualExpense: number;

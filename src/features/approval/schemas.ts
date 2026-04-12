@@ -75,7 +75,7 @@ export const approvalFormSchema = z.object({
     .min(2, "제목은 최소 2자 이상이어야 합니다.")
     .max(50, "제목은 최대 50자까지 입력 가능합니다."),
   content: z.string()
-    .min(10, "상세 내용은 최소 10자 이상 입력해주세요.")
+    .min(1, "상세 내용을 입력해주세요.")
     .max(500, "상세 내용은 최대 500자까지 입력 가능합니다."),
   // 휴가 관련 필드
   startDate: z.string().optional().or(z.literal("")),

@@ -31,27 +31,31 @@ export default async function ApprovalPage() {
 
   return (
     <div className="flex flex-col h-screen max-h-screen overflow-hidden bg-slate-50/50">
-      <header className="px-8 py-6 bg-white border-b border-slate-100 shrink-0">
-        <div className="flex items-center justify-between gap-8">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2.5 text-indigo-600 font-black uppercase tracking-[0.2em] text-[10px]">
-              <span className="w-8 h-1 bg-indigo-600 rounded-full"></span>
-              {isAdmin ? "Administrative Console" : "Employee Service"}
+      <header className="bg-white border-b border-slate-100 shrink-0">
+        <div className="container mx-auto px-6 py-6">
+          <div className="flex items-center justify-between gap-8">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2.5 text-indigo-600 font-black uppercase tracking-[0.2em] text-[10px]">
+                <span className="w-8 h-1 bg-indigo-600 rounded-full"></span>
+                {isAdmin ? "Administrative Console" : "Employee Service"}
+              </div>
+              <h1 className="text-3xl font-black text-slate-900 tracking-tighter">
+                {isAdmin ? "결재 관리" : "전자 결재"}
+              </h1>
             </div>
-            <h1 className="text-3xl font-black text-slate-900 tracking-tighter">
-              {isAdmin ? "결재 관리" : "전자 결재"}
-            </h1>
           </div>
         </div>
       </header>
 
-      <main className="flex-1 p-6 overflow-hidden min-h-0 flex flex-col">
-        <ApprovalConsole
-          toApprove={processedToApprove}
-          myRequests={processedMyRequests}
-          isAdmin={isAdmin}
-          currentUserCode={employeeCode}
-        />
+      <main className="flex-1 overflow-hidden min-h-0 flex flex-col">
+        <div className="flex-1 flex flex-col min-h-0 container mx-auto p-6">
+          <ApprovalConsole
+            toApprove={processedToApprove}
+            myRequests={processedMyRequests}
+            isAdmin={isAdmin}
+            currentUserCode={employeeCode}
+          />
+        </div>
       </main>
     </div>
   );

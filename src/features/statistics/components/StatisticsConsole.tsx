@@ -64,28 +64,86 @@ interface StatisticsConsoleProps {
   rawData: {
     orgs: any[];
     employees: any[];
+    positions: any[];
   };
 }
 
-export function StatisticsConsole({ treeData }: StatisticsConsoleProps) {
-  const [targetDate, setTargetDate] = useState<Date>(new Date());
+export function StatisticsConsole({ treeData, rawData }: StatisticsConsoleProps) {
+  // 하이드레이션 오류 방지를 위해 초기 날짜를 고정된 값이나 마운트 후에 설정
+  const [targetDate, setTargetDate] = useState<Date>(new Date("2026-04-12"));
   const [period, setPeriod] = useState<"MONTHLY" | "QUARTERLY" | "YEARLY">("MONTHLY");
   const [stats, setStats] = useState<OrganizationStat[]>([]);
   const [selectedOrgCode, setSelectedOrgCode] = useState<string | null>(null);
   const [teamDetail, setTeamDetail] = useState<TeamDetailStat | null>(null);
   const [isPending, startTransition] = useTransition();
   const [isMounted, setIsMounted] = useState(false);
+  const [dynamicTreeData, setDynamicTreeData] = useState<TreeNode[]>(treeData);
+  const [maxDate, setMaxDate] = useState<string>("");
 
   useEffect(() => {
     setIsMounted(true);
+    // 마운트 후 현재 날짜로 업데이트 및 상한선 설정
+    setTargetDate(new Date("2026-04-12"));
+    setMaxDate(format(new Date(), "yyyy-MM-dd"));
   }, []);
 
-  // 전사 요약 통계 조회
+  // 숫자 포맷터 (로캘 고정)
+  const formatNumber = (num: number) => num.toLocaleString('ko-KR');
+
+  // 트리 구성을 위한 헬퍼 함수
+  const buildTree = (orgs: any[], emps: any[], parentCode: string | null = null): TreeNode[] => {
+    const currentOrgs = orgs.filter((o: any) => {
+      if (parentCode === null) {
+        return !o.parentCode || o.parentCode === "none";
+      }
+      return o.parentCode === parentCode;
+    }).sort((a: any, b: any) => a.name.localeCompare(b.name));
+
+    return currentOrgs.map((org: any) => {
+      const orgEmployees: TreeNode[] = emps
+        .filter((e: any) => e.organizationCode === org.code)
+        .map((e: any) => {
+          const pos = rawData.positions.find(p => p.code === e.position);
+          return {
+            id: e.id,
+            code: e.employeeCode,
+            name: e.name,
+            type: 'employee' as const,
+            position: pos?.name || "",
+            level: pos?.level || 999,
+          };
+        })
+        .sort((a, b) => {
+          if (a.level !== b.level) return a.level - b.level;
+          return a.name.localeCompare(b.name);
+        }); // 직급순 + 이름순 정렬
+
+      const subOrgs = buildTree(orgs, emps, org.code);
+
+      return {
+        id: org.id,
+        code: org.code,
+        name: org.name,
+        type: 'org' as const,
+        children: [...orgEmployees, ...subOrgs],
+      };
+    });
+  };
+
+  // 전사 요약 통계 및 해당 시점의 트리 조회
   const fetchGlobalStats = async () => {
     startTransition(async () => {
+      // 1. 통계 수치 조회
       const result = await getOrganizationStats({ targetDate, period });
       if (result.success && result.data) {
         setStats(result.data);
+      }
+
+      // 2. 해당 시점의 조직도 스냅샷 조회 (Tree 동기화)
+      const { getOrganizationSnapshot } = await import("@/features/organization/history-actions");
+      const snapshot = await getOrganizationSnapshot(format(targetDate, "yyyy-MM-dd"));
+      if (snapshot.success) {
+        setDynamicTreeData(buildTree(snapshot.organizations || [], snapshot.employees || []));
       }
     });
   };
@@ -150,6 +208,7 @@ export function StatisticsConsole({ treeData }: StatisticsConsoleProps) {
               className="flex-1 border-0 bg-transparent focus-visible:ring-0 font-bold text-indigo-600 text-sm h-9"
               value={format(targetDate, "yyyy-MM-dd")}
               onChange={(e) => setTargetDate(new Date(e.target.value))}
+              max={maxDate}
             />
             <div className="w-px h-6 bg-slate-100 mx-1" />
             <Button
@@ -176,7 +235,7 @@ export function StatisticsConsole({ treeData }: StatisticsConsoleProps) {
           </div>
           <div className="h-[calc(100%-60px)] orientation-tree-container">
             <OrganizationTree
-              nodes={treeData}
+              nodes={dynamicTreeData}
               onSelect={handleOrgSelect}
               selectedCode={selectedOrgCode || ''}
             />
@@ -197,7 +256,7 @@ export function StatisticsConsole({ treeData }: StatisticsConsoleProps) {
                 <CardHeader className="pb-2">
                   <CardDescription className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Total Planned Budget</CardDescription>
                   <CardTitle className="text-3xl font-black italic tracking-tighter">
-                    {(totalPlanned).toLocaleString()} <span className="text-xs not-italic ml-1">원</span>
+                    {formatNumber(totalPlanned)} <span className="text-xs not-italic ml-1">원</span>
                   </CardTitle>
                 </CardHeader>
               </Card>
@@ -207,7 +266,7 @@ export function StatisticsConsole({ treeData }: StatisticsConsoleProps) {
                 <CardHeader className="pb-2">
                   <CardDescription className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Actual Expenditure</CardDescription>
                   <CardTitle className="text-3xl font-black text-slate-900 italic tracking-tighter">
-                    {(totalActual).toLocaleString()} <span className="text-xs not-italic ml-1">원</span>
+                    {formatNumber(totalActual)} <span className="text-xs not-italic ml-1">원</span>
                   </CardTitle>
                 </CardHeader>
               </Card>
@@ -287,7 +346,7 @@ export function StatisticsConsole({ treeData }: StatisticsConsoleProps) {
                       axisLine={false}
                       tickLine={false}
                       tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }}
-                      tickFormatter={(v) => `${(v / 10000).toLocaleString()}만`}
+                      tickFormatter={(v) => `${formatNumber(v / 10000)}만`}
                     />
                     <Tooltip
                       cursor={{ fill: '#f8fafc' }}
@@ -330,14 +389,14 @@ export function StatisticsConsole({ treeData }: StatisticsConsoleProps) {
                   <Card className="rounded-3xl border-none shadow-lg bg-white p-4 ring-1 ring-slate-100">
                     <CardDescription className="text-slate-400 font-bold uppercase text-[9px]">팀 총 예산</CardDescription>
                     <div className="flex items-center justify-between mt-1">
-                      <CardTitle className="text-2xl font-black text-slate-900 italic tracking-tighter">{teamDetail.totalPlanned.toLocaleString()}</CardTitle>
+                      <CardTitle className="text-2xl font-black text-slate-900 italic tracking-tighter">{formatNumber(teamDetail.totalPlanned)}</CardTitle>
                       <Badge variant="secondary" className="bg-slate-100 text-[10px] font-bold">KRW</Badge>
                     </div>
                   </Card>
                   <Card className="rounded-3xl border-none shadow-lg bg-white p-4 ring-1 ring-slate-100">
                     <CardDescription className="text-slate-400 font-bold uppercase text-[9px]">실제 지출액</CardDescription>
                     <div className="flex items-center justify-between mt-1">
-                      <CardTitle className="text-2xl font-black text-indigo-600 italic tracking-tighter">{teamDetail.totalActual.toLocaleString()}</CardTitle>
+                      <CardTitle className="text-2xl font-black text-indigo-600 italic tracking-tighter">{formatNumber(teamDetail.totalActual)}</CardTitle>
                       <ArrowUpRight className="h-5 w-5 text-indigo-500 opacity-40" />
                     </div>
                   </Card>
@@ -345,7 +404,7 @@ export function StatisticsConsole({ treeData }: StatisticsConsoleProps) {
                     <CardDescription className="text-slate-500 font-bold uppercase text-[9px]">팀 잔액</CardDescription>
                     <div className="flex items-center justify-between mt-1">
                       <CardTitle className={`text-2xl font-black italic tracking-tighter ${teamDetail.totalPlanned - teamDetail.totalActual < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                        {(teamDetail.totalPlanned - teamDetail.totalActual).toLocaleString()}
+                        {formatNumber(teamDetail.totalPlanned - teamDetail.totalActual)}
                       </CardTitle>
                       <CheckCircle2 className={`h-5 w-5 opacity-40 ${teamDetail.totalPlanned - teamDetail.totalActual < 0 ? 'text-red-500' : 'text-emerald-500'}`} />
                     </div>
@@ -400,14 +459,14 @@ export function StatisticsConsole({ treeData }: StatisticsConsoleProps) {
                                 <Badge variant="outline" className="font-bold border-slate-200 text-slate-500 rounded-lg">{member.position}</Badge>
                               </TableCell>
                               <TableCell className="text-right font-bold text-slate-500">
-                                {member.plannedBudget.toLocaleString()}
+                                {formatNumber(member.plannedBudget)}
                               </TableCell>
                               <TableCell className="text-right">
-                                <span className="font-black text-slate-900 group-hover:text-indigo-600 transition-colors">{member.actualExpense.toLocaleString()}</span>
+                                <span className="font-black text-slate-900 group-hover:text-indigo-600 transition-colors">{formatNumber(member.actualExpense)}</span>
                               </TableCell>
                               <TableCell className="text-right pr-8">
                                 <span className={`font-black italic ${member.remainingBudget < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
-                                  {member.remainingBudget.toLocaleString()}
+                                  {formatNumber(member.remainingBudget)}
                                 </span>
                               </TableCell>
                             </TableRow>

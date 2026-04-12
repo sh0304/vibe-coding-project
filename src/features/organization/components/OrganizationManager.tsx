@@ -209,7 +209,7 @@ function OrgActionPanel({ org, orgList, isPending, startTransition, onSuccess, o
 
     startTransition(async () => {
       const res = await updateOrganizationHistory(org.code, formData);
-      if (res.success) onSuccess('부서 정보가 갱신되었습니다. (SCD 이력 생성)');
+      if (res.success) onSuccess('부서 정보가 갱신되었습니다.');
       else onError(res.error);
     });
   };
@@ -276,11 +276,11 @@ function OrgActionPanel({ org, orgList, isPending, startTransition, onSuccess, o
 
 function EmployeeActionPanel({ emp, orgList, positions, isPending, startTransition, onSuccess, onError, onOpenHistory }: any) {
   const [orgCode, setOrgCode] = useState(emp.organizationCode);
-  const [posCode, setPosCode] = useState(emp.positionCode);
+  const [posCode, setPosCode] = useState(emp.position);
 
   useEffect(() => {
     setOrgCode(emp.organizationCode);
-    setPosCode(emp.positionCode);
+    setPosCode(emp.position);
   }, [emp]);
 
   const handleTransfer = (e: React.FormEvent<HTMLFormElement>) => {
@@ -293,13 +293,13 @@ function EmployeeActionPanel({ emp, orgList, positions, isPending, startTransiti
 
     startTransition(async () => {
       const res = await transferEmployee(formData);
-      if (res.success) onSuccess('인사 발령이 완료되었습니다. (SCD 이력 생성)');
+      if (res.success) onSuccess('인사 발령이 완료되었습니다.');
       else onError(res.error);
     });
   };
 
   const currentOrgName = orgList.find((o: any) => o.code === emp.organizationCode)?.name || '없음';
-  const currentPosName = positions.find((p: any) => p.code === emp.positionCode)?.name || '사원';
+  const currentPosName = positions.find((p: any) => p.code === emp.position)?.name || '사원';
 
   return (
     <Card className="min-h-full flex flex-col animate-in fade-in slide-in-from-right-4 duration-300 border-none shadow-sm ring-1 ring-slate-200">

@@ -31,7 +31,10 @@ export const OrganizationService = {
               level: pos?.level || 999,
             };
           })
-          .sort((a: any, b: any) => (a.level ?? 999) - (b.level ?? 999));
+          .sort((a: any, b: any) => {
+            if (a.level !== b.level) return (a.level ?? 999) - (b.level ?? 999);
+            return a.name.localeCompare(b.name);
+          });
 
         const subOrgs = buildTree(org.code);
 

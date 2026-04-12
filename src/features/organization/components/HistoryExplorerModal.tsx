@@ -115,6 +115,7 @@ export function HistoryExplorerModal({
               className="w-48 h-11 font-mono bg-white border-none rounded-xl focus:ring-0 font-bold text-indigo-600"
               value={targetDate}
               onChange={(e) => setTargetDate(e.target.value)}
+              max={new Date().toISOString().split('T')[0]}
             />
           </div>
         </div>

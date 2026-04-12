@@ -14,31 +14,33 @@ export default async function AdminOrganizationPage() {
 
   return (
     <div className="flex flex-col h-screen max-h-screen overflow-hidden bg-slate-50/50">
-      <header className="px-10 py-8 bg-white border-b border-slate-100 shrink-0">
-        <div className="flex items-center justify-between gap-8">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2.5 text-indigo-600 font-black uppercase tracking-[0.2em] text-[10px]">
-              <span className="w-8 h-1 bg-indigo-600 rounded-full"></span>
-              Admin Management
-            </div>
-            <h1 className="text-3xl font-black text-slate-900 tracking-tighter">
-              조직도 관리
-            </h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex flex-col items-end">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Employee Count</span>
-              <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-indigo-500" />
-                <span className="text-xl font-black text-slate-900">{employees.length}명</span>
+      <header className="bg-white border-b border-slate-100 shrink-0">
+        <div className="container mx-auto px-6 py-8">
+          <div className="flex items-center justify-between gap-8">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2.5 text-indigo-600 font-black uppercase tracking-[0.2em] text-[10px]">
+                <span className="w-8 h-1 bg-indigo-600 rounded-full"></span>
+                Admin Management
               </div>
+              <h1 className="text-3xl font-black text-slate-900 tracking-tighter">
+                조직도 관리
+              </h1>
             </div>
-            <div className="w-px h-10 bg-slate-100 mx-2" />
-            <div className="flex flex-col items-end">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Departments</span>
-              <div className="flex items-center gap-2">
-                <Settings className="h-4 w-4 text-indigo-500" />
-                <span className="text-xl font-black text-slate-900">{orgs.length}개</span>
+            <div className="flex items-center gap-4">
+              <div className="flex flex-col items-end">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Employee Count</span>
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-indigo-500" />
+                  <span className="text-xl font-black text-slate-900">{employees.length}명</span>
+                </div>
+              </div>
+              <div className="w-px h-10 bg-slate-100 mx-2" />
+              <div className="flex flex-col items-end">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Departments</span>
+                <div className="flex items-center gap-2">
+                  <Settings className="h-4 w-4 text-indigo-500" />
+                  <span className="text-xl font-black text-slate-900">{orgs.length}개</span>
+                </div>
               </div>
             </div>
           </div>
@@ -46,13 +48,15 @@ export default async function AdminOrganizationPage() {
       </header>
 
       {/* 메인 컨텐츠 영역 */}
-      <main className="flex-1 p-6 overflow-hidden min-h-0 flex flex-col">
-        <OrganizationManager
-          treeData={treeData}
-          positions={positions.map((p: any) => ({ code: p.code, name: p.name, level: p.level }))}
-          orgList={orgs.map((o: any) => ({ code: o.code, name: o.name }))}
-          rawData={{ orgs, employees }}
-        />
+      <main className="flex-1 overflow-hidden min-h-0 flex flex-col">
+        <div className="flex-1 flex flex-col min-h-0 container mx-auto p-6">
+          <OrganizationManager
+            treeData={treeData}
+            positions={positions.map((p: any) => ({ code: p.code, name: p.name, level: p.level }))}
+            orgList={orgs.map((o: any) => ({ code: o.code, name: o.name }))}
+            rawData={{ orgs, employees }}
+          />
+        </div>
       </main>
     </div>
   );

@@ -22,8 +22,7 @@ export const StatisticsService = {
       where: {
         AND: [
           { validFrom: { lte: targetDate } },
-          { OR: [{ validTo: null }, { validTo: { gt: targetDate } }] },
-          { isActive: true }
+          { OR: [{ validTo: null }, { validTo: { gte: targetDate } }] },
         ]
       }
     });
@@ -33,8 +32,7 @@ export const StatisticsService = {
       where: {
         AND: [
           { validFrom: { lte: targetDate } },
-          { OR: [{ validTo: null }, { validTo: { gt: targetDate } }] },
-          { isActive: true }
+          { OR: [{ validTo: null }, { validTo: { gte: targetDate } }] },
         ]
       }
     });
@@ -95,11 +93,17 @@ export const StatisticsService = {
     // 1. 기초 데이터 (정책, 조직 정보)
     const [policies, org, positions] = await Promise.all([
       prisma.budgetPolicy.findMany({ where: { isActive: true } }),
-      prisma.organization.findFirst({ where: { code: orgCode, isActive: true } }),
+      prisma.organization.findFirst({
+        where: {
+          code: orgCode,
+          validFrom: { lte: targetDate },
+          OR: [{ validTo: null }, { validTo: { gte: targetDate } }]
+        }
+      }),
       (prisma as any).position.findMany({ where: { isActive: true } })
     ]);
 
-    if (!org) throw new Error("해당 부서를 찾을 수 없거나 활성 상태가 아닙니다.");
+    if (!org) throw new Error("해당 시점에 해당 부서를 찾을 수 없습니다.");
     const totalUnitAmount = policies.reduce((acc, p) => acc + p.unitPrice, 0);
 
     // 2. 해당 시점의 모든 부서 목록 조회 (하위 부서 탐색용)
@@ -107,8 +111,7 @@ export const StatisticsService = {
       where: {
         AND: [
           { validFrom: { lte: targetDate } },
-          { OR: [{ validTo: null }, { validTo: { gt: targetDate } }] },
-          { isActive: true }
+          { OR: [{ validTo: null }, { validTo: { gte: targetDate } }] },
         ]
       }
     });
@@ -127,8 +130,7 @@ export const StatisticsService = {
         AND: [
           { organizationCode: { in: targetOrgCodes } },
           { validFrom: { lte: targetDate } },
-          { OR: [{ validTo: null }, { validTo: { gt: targetDate } }] },
-          { isActive: true }
+          { OR: [{ validTo: null }, { validTo: { gte: targetDate } }] },
         ]
       }
     });
@@ -145,25 +147,31 @@ export const StatisticsService = {
       }
     });
 
-    // 4. 사원별 집계
-    const members: MemberStat[] = deptEmployees.map(emp => {
-      const actualExpense = expenses
-        .filter(exp => exp.authorEmployeeCode === emp.employeeCode)
-        .reduce((acc, exp) => acc + (Number(exp.amount) || 0), 0);
+    // 4. 사원별 집계 및 정렬
+    const members: MemberStat[] = deptEmployees
+      .map(emp => {
+        const actualExpense = expenses
+          .filter(exp => exp.authorEmployeeCode === emp.employeeCode)
+          .reduce((acc, exp) => acc + (Number(exp.amount) || 0), 0);
 
-      const pos = positions.find((p: any) => p.code === (emp as any).position);
-      const orgMember = allOrgs.find(o => o.code === emp.organizationCode);
+        const pos = positions.find((p: any) => p.code === (emp as any).position);
+        const orgMember = allOrgs.find(o => o.code === emp.organizationCode);
 
-      return {
-        employeeCode: emp.employeeCode,
-        name: emp.name,
-        position: pos?.name || "사원",
-        orgName: orgMember?.name || "소속 없음",
-        plannedBudget: totalUnitAmount,
-        actualExpense,
-        remainingBudget: totalUnitAmount - actualExpense
-      };
-    });
+        return {
+          employeeCode: emp.employeeCode,
+          name: emp.name,
+          position: pos?.name || "사원",
+          positionLevel: pos?.level || 999,
+          orgName: orgMember?.name || "소속 없음",
+          plannedBudget: totalUnitAmount,
+          actualExpense,
+          remainingBudget: totalUnitAmount - actualExpense
+        };
+      })
+      .sort((a, b) => {
+        if (a.positionLevel !== b.positionLevel) return a.positionLevel - b.positionLevel;
+        return a.name.localeCompare(b.name);
+      });
 
     return {
       orgCode: org.code,

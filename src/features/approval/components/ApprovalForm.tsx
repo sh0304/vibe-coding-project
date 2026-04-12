@@ -228,7 +228,7 @@ export function ApprovalForm({ currentEmployeeCode, onSuccess, onCancel }: Appro
               <Label htmlFor="content" className="text-sm font-bold text-slate-700 ml-1">상세 내용 *</Label>
               <Textarea
                 id="content"
-                placeholder="결재 상세 사유를 입력하세요 (최소 10자)"
+                placeholder="결재 상세 사유를 입력하세요"
                 className="min-h-[150px] rounded-2xl bg-white border-slate-200 focus:ring-indigo-500 p-4"
                 value={content}
                 onChange={(e) => setContent(e.target.value)}

@@ -4,9 +4,9 @@ import { prisma } from "@/lib/prisma"
 
 export async function getOrganizationSnapshot(dateStr: string) {
   try {
-    // 00:00:00 대신 해당 날짜의 끝(23:59:59)까지 포함하도록 설정
+    // 해당 날짜의 시작 시점(00:00:00)을 기준으로 조회하여 경계값 밀리초 오차 방지
     const targetDate = new Date(dateStr)
-    targetDate.setHours(23, 59, 59, 999)
+    targetDate.setHours(0, 0, 0, 0)
 
     console.log(`[getOrganizationSnapshot] Querying for date: ${targetDate.toISOString()}`);
 
@@ -15,7 +15,7 @@ export async function getOrganizationSnapshot(dateStr: string) {
         validFrom: { lte: targetDate },
         OR: [
           { validTo: null }, 
-          { validTo: { gt: targetDate } }
+          { validTo: { gte: targetDate } }
         ],
       },
       orderBy: { validFrom: "desc" },
@@ -26,7 +26,7 @@ export async function getOrganizationSnapshot(dateStr: string) {
         validFrom: { lte: targetDate },
         OR: [
           { validTo: null }, 
-          { validTo: { gt: targetDate } }
+          { validTo: { gte: targetDate } }
         ],
       },
       orderBy: { name: "asc" },
