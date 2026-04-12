@@ -19,7 +19,9 @@
 
 ### 3.3 상세 액션 패널 (데이터 관리)
 *   **부서 모드**: 이름 변경 및 상위 부서 이동 시 `applyDate`를 기준으로 새 이력 생성.
-*   **사원 모드**: 인사 발령 기능 포함 (대상 부서, 직급, 발령일 지정).
+*   **사원 모드**: 
+    - 인사 발령 기능 포함 (대상 부서, 직급, 발령일 지정).
+    - **정렬 정책**: 사원 목록은 **직급 레벨(Level) 오름차순**으로 우선 정렬되며, 동일 직급 내에서는 **성명 가나다순**으로 표시됩니다.
 
 ## 4. 상세 기술 명세 (Technical Specifications)
 
@@ -44,7 +46,7 @@ model Employee {
   employeeCode     String    @map("employee_code") // 불변 사번
   name             String                           // 이름
   organizationCode String    @map("org_code")        // 소속 부서 논리 식별자
-  positionCode     String    @map("position")        // Position.code 참조
+  positionCode     String    @map("position_code")   // Position.code 참조
   validFrom        DateTime  @default(now()) @map("valid_from")
   validTo          DateTime? @map("valid_to")
   isActive         Boolean   @default(true) @map("is_active")
@@ -62,6 +64,9 @@ model Employee {
 *   **비즈니스 제약 (SCD Integrity)**:
     *   **이력 역행 방지**: 새로운 `applyDate`는 해당 사원/부서의 현재 레코드의 `validFrom`보다 이전일 수 없습니다.
     *   **원자성 보장**: 모든 이력 갱신(기존 레코드 Close + 새 레코드 Open)은 반드시 `prisma.$transaction` 블록 내에서 실행되어야 합니다.
+*   **로그인 계정 연동**:
+    *   신규 사원 등록 시 `User` 테이블에 로그인 계정을 동시에 생성합니다.
+    *   초기 비밀번호는 `password123`으로 자동 설정되며, 이메일은 필수 입력 사항입니다.
 
 ## 5. 핵심 비즈니스 로직
 *   **SCD Type 2 프로세스**: 기존 레코드의 `validTo`를 `applyDate`로 업데이트하고, 동일한 논리 식별자(`code`)를 가진 새 레코드를 추가합니다.

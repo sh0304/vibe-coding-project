@@ -26,17 +26,28 @@
    ```typescript
    // history-actions.ts 
    export async function getOrganizationSnapshot(dateStr: string) {
+     // 1. 날짜를 해당 일자의 시작 시점(00:00:00)으로 초기화하여 조회 정밀도 확보
      const targetDate = new Date(dateStr);
-     const orgParams = { where: { validFrom: { lte: targetDate }, OR: [{ validTo: null }, { validTo: { gt: targetDate } }] }};
+     targetDate.setHours(0, 0, 0, 0);
+
+     const orgParams = { 
+       where: { 
+         validFrom: { lte: targetDate }, 
+         OR: [
+           { validTo: null }, 
+           { validTo: { gte: targetDate } } // gte를 사용하여 해당일 종료 시점까지 포함
+         ] 
+       }
+     };
      // ... Fetch orgs & emps simultaneously returning data ...
    }
    ```
 
 ## AI 구현 체크리스트
-- [ ] `page.tsx`는 항상 최신(Current Active) 상태만 SSR로 내려주는 코드로 원복.
-- [ ] `src/features/organization/history-actions.ts` 생성 후 병렬(Parallel) point-in-time Fetching 액션 정의.
-- [ ] `HistoryExplorerModal.tsx` 생성. 이 안에서 `targetDate`를 바꾸면 비동기 `useTransition` 혹은 수동 `useState` 기반으로 스냅샷을 다시 불러와 재렌더링.
-- [ ] `OrganizationManager`에 "과거 조회 모달 열기" 버튼 추가 및 `HistoryExplorerModal` 탑재.
+- [x] `page.tsx`는 항상 최신(Current Active) 상태만 SSR로 내려주는 코드로 원복.
+- [x] `src/features/organization/history-actions.ts` 생성 후 병렬(Parallel) point-in-time Fetching 액션 정의.
+- [x] `HistoryExplorerModal.tsx` 생성. 이 안에서 `targetDate`를 바꾸면 비동기 `useTransition` 혹은 수동 `useState` 기반으로 스냅샷을 다시 불러와 재렌더링.
+- [x] `OrganizationManager`에 "과거 조회 모달 열기" 버튼 추가 및 `HistoryExplorerModal` 탑재.
 
 ## 상세 기술 명세 (Technical Specifications)
 - **Database**: 기존 SCD Type 2 구조(`validFrom`, `validTo`)를 그대로 활용, 추가 DB 작업 불필요.

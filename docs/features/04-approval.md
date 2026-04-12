@@ -23,7 +23,7 @@ model Approval {
   status                String         @default("PENDING") // PENDING, IN_PROGRESS, APPROVED, REJECTED
   
   // SCD Snapshot Fields (기안 시점의 정보 박제)
-  authorEmployeeCode    String         @map("author_code")
+  authorEmployeeCode    String         @map("author_employee_code")
   snapshotAuthorName    String         @map("snapshot_author_name")
   snapshotOrgName       String         @map("snapshot_org_name")
   snapshotPosition      String         @map("snapshot_position")
@@ -70,7 +70,10 @@ model ApprovalStep {
 
 ## 5. 핵심 비즈니스 로직
 *   **데이터 박제**: 결재가 상신되는 순간, 당시 기안자의 부서명과 직급명을 `snapshot` 필드에 텍스트로 저장하여 향후 조직 개편의 영향을 받지 않도록 합니다.
-*   **결재선 자동 생성**: 기안자의 `positionCode`와 소속 조직을 기반으로 팀장(1차), 인사팀(2차) 결재자를 상신 시점에 동적으로 할당합니다.
+*   **결재선 자동 생성**: 
+    - 기안자의 소속과 직급을 기반으로 결재선을 구성합니다.
+    - 소속 팀장(1차) → 관련 본부장 또는 인사팀장(2차) 순으로 결재자가 상신 시점에 동적으로 할당됩니다.
+    - SCD Type 2 쿼리를 통해 **상신 일자 당일에 실제 해당 직책을 맡고 있던 사원**을 정확히 추적하여 결재자로 지정합니다.
 
 ## 6. AI 구현 체크리스트
 - [x] 결재 상신 및 승인/반려 시 트랜잭션 처리 원칙 준수.
