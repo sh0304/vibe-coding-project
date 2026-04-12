@@ -44,66 +44,105 @@ erDiagram
     POSITION ||--o{ EMPLOYEE : "has"
     ORGANIZATION ||--o{ EMPLOYEE : "belongs to"
     ORGANIZATION ||--o| ORGANIZATION : "parent"
-    EMPLOYEE ||--o| USER : "mapped to"
+    EMPLOYEE ||--o| USER : "mapped"
     EMPLOYEE ||--o{ APPROVAL : "requests"
     EMPLOYEE ||--o{ APPROVAL_STEP : "approves"
-    EMPLOYEE ||--o{ PROJECT_ASSIGNMENT : "assigned to"
     APPROVAL ||--o{ APPROVAL_STEP : "contains"
-    PROJECT ||--o{ PROJECT_ASSIGNMENT : "has"
 
     POSITION {
-        string code PK
-        string name
-        int level
+        string code PK "직급 코드 (POS_STAFF 등)"
+        string name "직급명 (사원, 팀장)"
+        int level "권한 레벨"
+        string approvalGroup "결재 권한 그룹"
     }
     ORGANIZATION {
-        string code PK
-        string name
-        string parent_code FK
-        datetime valid_from
-        datetime valid_to
-        boolean is_active
+        string code "부서 논리 식별자"
+        string name "부서명 (이력 변경 가능)"
+        string parent_code FK "상위 부서 코드"
+        datetime valid_from "이력 시작일"
+        datetime valid_to "이력 종료일"
+        boolean is_active "활성화 여부"
     }
     EMPLOYEE {
-        string employee_code PK
-        string name
-        string org_code FK
-        string position_code FK
-        datetime valid_from
-        datetime valid_to
-        boolean is_active
-    }
-    USER {
-        string id PK
-        string email UK
-        string employee_code FK
-        string role
+        string employee_code PK "사번"
+        string name "이름"
+        string org_code FK "소속 부서 코드"
+        string position_code FK "직급 코드"
+        datetime valid_from "발령 시작일"
+        datetime valid_to "발령 종료일"
+        boolean is_active "재직 여부"
     }
     APPROVAL {
-        string id PK
-        string title
-        string status
-        string author_employee_code FK
-        int amount
+        string id PK "문서 ID"
+        string category "결재 유형 (LEAVE, EXPENSE)"
+        string status "상태 (PENDING, APPROVED)"
+        string author_employee_code FK "기안자 사번"
+        string snapshot_org_name "기안 당시 부서명"
+        string snapshot_position "기안 당시 직급"
+        int amount "청구 금액 (있는 경우)"
     }
     APPROVAL_STEP {
-        string id PK
-        string approval_id FK
-        int step_order
-        string status
-        string approver_employee_code FK
+        string id PK "단계 ID"
+        string approval_id FK "연결된 결재 문서"
+        int step_order "결재 순서"
+        string role "담당 역할 (TEAM_LEAD 등)"
+        string status "승인 상태 (WAITING, APPROVED)"
+        string approver_employee_code FK "승인자 사번"
     }
-    PROJECT {
-        string id PK
-        string name
+    USER {
+        string email PK "계정 이메일"
+        string employee_code FK "연결된 사번"
+        string role "시스템 권한 (admin, user)"
     }
-    PROJECT_ASSIGNMENT {
-        string id PK
-        string project_id FK
-        string employee_code FK
-        float man_month
+    BUDGET_POLICY {
+        string category PK "예산 항목 (WELFARE 등)"
+        int unit_price "인당 기준 단가"
+        boolean is_active "정책 활성화 상태"
     }
 ```
+
+---
+
+## 📑 스키마 상세 설명 (쉽게 읽기)
+
+이 시스템의 데이터 모델은 크게 **'과거를 기억하는 타임머신'**과 **'중요한 순간을 기록하는 사진기'**라는 두 가지 개념으로 설계되었습니다.
+
+### 1. 조직 및 인사 관리: "데이터 타임머신" 🕰️
+이 영역의 테이블들은 부서가 바뀌거나 팀을 옮겨도 과거의 기록을 지우지 않고 보관합니다.
+
+| 테이블 | 설명 (역할) | 쉬운 예시 |
+| :--- | :--- | :--- |
+| **Position (직급)** | 회사 내의 계급장 목록입니다. | 사원, 팀장, 본부장 등 어떤 역할이 있는지 정의합니다. |
+| **Organization (부서)** | 부서의 족보입니다. | '인사팀'이 '피플팀'으로 이름이 바뀌어도, "작년에는 인사팀이었다"는 사실을 기억합니다. |
+| **Employee (사원)** | 사원의 발령 기록지입니다. | 홍길동 사원이 1월에는 A팀, 2월에는 B팀 소속이었다는 이동 경로를 모두 저장합니다. |
+
+*   **핵심 원리**: `시작일(validFrom)`과 `종료일(validTo)`을 사용하여, 특정 날짜를 입력하면 그 당시의 조직도를 그대로 재현할 수 있습니다.
+
+---
+
+### 2. 전자결재 시스템: "기록용 폴라로이드" 📸
+결재는 나중에 부서 이름이 바뀌거나 팀장이 바뀌어도, **'결재했던 그 순간'**의 정보가 그대로 남아 있어야 합니다.
+
+| 테이블 | 설명 (역할) | 쉬운 예시 |
+| :--- | :--- | :--- |
+| **Approval (결재)** | 신청서 본체입니다. | 휴가 신청서나 영수증 청구서라고 생각하면 됩니다. |
+| **Snapshot (스냅샷)** | 결재 당시의 정보를 사진 찍듯 저장합니다. | 결재 후에 팀 이름이 바뀌어도, 신청서에는 **당시의 팀 이름**이 그대로 찍혀 나옵니다. |
+| **ApprovalStep (결재선)** | 도장을 찍는 순서입니다. | 1단계는 팀장님, 2단계는 본부장님처럼 승인을 받아야 하는 길을 정합니다. |
+
+---
+
+### 3. 시스템 설정 및 규칙 ⚙️
+| 테이블 | 설명 (역할) | 쉬운 예시 |
+| :--- | :--- | :--- |
+| **User (사용자)** | 시스템에 로그인하기 위한 열쇠입니다. | 이메일과 비밀번호로 "나"라는 것을 증명합니다. 인사 정보(`Employee`)와 연결되어 있습니다. |
+| **BudgetPolicy (돈 관리)** | 회사에서 정한 비용 기준입니다. | "복리후생비는 인당 10만원까지"라는 식의 기준치를 정해두고 결재 시 참고합니다. |
+
+---
+
+### 💡 시스템 작동 방식 요약
+1.  **변하지 않는 기록**: 부서 이름이 바뀌어도 과거의 결재 서류나 발령 기록은 바뀌지 않고 그대로 유지됩니다.
+2.  **자동 권한 부여**: 내 직급(`Position`)에 따라 결재할 수 있는 권한이 자동으로 결정됩니다.
+3.  **데이터 무결성**: 모든 정보는 함부로 삭제되지 않으며, 기록을 '닫고' 새로운 기록을 '여는' 방식으로 운영됩니다.
 
 ---
 
