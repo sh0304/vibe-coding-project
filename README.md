@@ -41,27 +41,27 @@
 
 ```mermaid
 erDiagram
-    POSITION ||--o{ EMPLOYEE : "has"
     ORGANIZATION ||--o{ EMPLOYEE : "belongs to"
-    ORGANIZATION ||--o| ORGANIZATION : "parent"
+    POSITION ||--o{ EMPLOYEE : "has"
     EMPLOYEE ||--o| USER : "mapped"
     EMPLOYEE ||--o{ APPROVAL : "requests"
-    EMPLOYEE ||--o{ APPROVAL_STEP : "approves"
     APPROVAL ||--o{ APPROVAL_STEP : "contains"
+    EMPLOYEE ||--o{ APPROVAL_STEP : "approves"
+    ORGANIZATION ||--o| ORGANIZATION : "parent"
 
     POSITION {
-        string code PK "직급 코드 (POS_STAFF 등)"
-        string name "직급명 (사원, 팀장)"
-        int level "권한 레벨"
-        string approvalGroup "결재 권한 그룹"
+        string code PK "직급 코드"
+        string name "직급명"
+        int level "레벨"
+        string approvalGroup "결재 그룹"
     }
     ORGANIZATION {
-        string code "부서 논리 식별자"
-        string name "부서명 (이력 변경 가능)"
+        string code PK "부서 코드"
         string parent_code FK "상위 부서 코드"
-        datetime valid_from "이력 시작일"
-        datetime valid_to "이력 종료일"
+        string name "부서명"
         boolean is_active "활성화 여부"
+        datetime valid_from "시작일"
+        datetime valid_to "종료일"
     }
     EMPLOYEE {
         string employee_code PK "사번"
@@ -79,7 +79,7 @@ erDiagram
         string author_employee_code FK "기안자 사번"
         string snapshot_org_name "기안 당시 부서명"
         string snapshot_position "기안 당시 직급"
-        int amount "청구 금액 (있는 경우)"
+        int amount "청구 금액"
     }
     APPROVAL_STEP {
         string id PK "단계 ID"
@@ -110,29 +110,29 @@ erDiagram
 ### 1. 조직 및 인사 관리 (Organization & HR)
 부서 및 사원 정보의 변경 사항을 덮어쓰지 않고 새로운 레코드로 생성하여, 특정 시점의 조직 데이터를 조회할 수 있는 **이력 추적형(SCD Type 2)** 기반으로 작동합니다.
 
-| 테이블 | 주요 역할 | 핵심 로직 |
-| :--- | :--- | :--- |
-| **Position** | 직급 권한 및 체계 정의 | 각 직급별 결재 권한 그룹(`approvalGroup`)과 서열(`level`)을 관리합니다. |
-| **Organization** | 부서 구조 및 이력 보존 | 상하 관계(`parentCode`)와 유효 기간(`validFrom/To`)을 통해 조직 개편 전후의 상태를 모두 보존합니다. |
-| **Employee** | 사원 기본 정보 및 발령 이력 | 사원의 정보 변경 시 기존 정보를 '닫고' 새로운 정보를 '여는' 방식으로 운영되어, 사원의 부서 이동 경로를 추적합니다. |
+| 테이블 | 주요 역할 | 주요 컬럼 | 핵심 로직 |
+| :--- | :--- | :--- | :--- |
+| **Position** | 직급 권한 및 체계 정의 | `code`, `name`, `level`, `approvalGroup` | 각 직급별 결재 권한 그룹(`approvalGroup`)과 서열(`level`)을 관리합니다. |
+| **Organization** | 부서 구조 및 이력 보존 | `code`, `name`, `parentCode`, `validFrom/To` | 상하 관계(`parentCode`)와 유효 기간(`validFrom/To`)을 통해 조직 개편 전후의 상태를 모두 보존합니다. |
+| **Employee** | 사원 기본 정보 및 발령 이력 | `employeeCode`, `orgCode`, `position`, `validFrom/To` | 사원의 정보 변경 시 기존 정보를 '닫고' 새로운 정보를 '여는' 방식으로 운영되어, 사원의 부서 이동 경로를 추적합니다. |
 
 ---
 
 ### 2. 전자결재 시스템 (Approval System)
 결재 프로세스 중 발생하는 데이터의 왜곡을 방지하기 위해 생성 시점의 정보를 고정하는 **스냅샷(Snapshot)** 아키텍처를 사용합니다.
 
-| 테이블 | 주요 역할 | 핵심 로직 |
-| :--- | :--- | :--- |
-| **Approval** | 결재 문서 생성 및 스냅샷 보존 | 기안 시점의 기안자 이름, 소속, 직급 정보를 필드에 직접 박제하여 이후 조직 개편 등의 영향을 받지 않도록 합니다. |
-| **ApprovalStep** | 결재선 단계 및 승인 로직 | 결재 순차(`stepOrder`)와 승인자 권한을 관리하며, 단계별 승인 시점의 상태를 독립적으로 기록합니다. |
+| 테이블 | 주요 역할 | 주요 컬럼 | 핵심 로직 |
+| :--- | :--- | :--- | :--- |
+| **Approval** | 결재 문서 생성 및 스냅샷 보존 | `category`, `status`, `snapshotAuthorName`, `snapshotOrgName` | 기안 시점의 기안자 이름, 소속, 직급 정보를 필드에 직접 박제하여 이후 조직 개편 등의 영향을 받지 않도록 합니다. |
+| **ApprovalStep** | 결재선 단계 및 승인 로직 | `stepOrder`, `role`, `approverEmployeeCode`, `status` | 결재 순차(`stepOrder`)와 승인자 권한을 관리하며, 단계별 승인 시점의 상태를 독립적으로 기록합니다. |
 
 ---
 
 ### 3. 시스템 설정 및 예산 정책 (System & Policy)
-| 테이블 | 주요 역할 | 핵심 로직 |
-| :--- | :--- | :--- |
-| **User** | 인증 및 권한 관리 | 실제 인사 데이터(`Employee`)와 연동되어 시스템 접근 여부 및 관리자 권한을 부여합니다. |
-| **BudgetPolicy** | 예산 검증 및 산출 기준 | 항목별 인당 기준 단가를 설정하며, 비용 청구 결재 시 실시간 검증 및 통계 산출의 모집단이 됩니다. |
+| 테이블 | 주요 역할 | 주요 컬럼 | 핵심 로직 |
+| :--- | :--- | :--- | :--- |
+| **User** | 인증 및 권한 관리 | `email`, `role`, `employeeCode` | 실제 인사 데이터(`Employee`)와 연동되어 시스템 접근 여부 및 관리자 권한을 부여합니다. |
+| **BudgetPolicy** | 예산 검증 및 산출 기준 | `category`, `unitPrice`, `isActive` | 항목별 인당 기준 단가를 설정하며, 비용 청구 결재 시 실시간 검증 및 통계 산출의 모집단이 됩니다. |
 
 ---
 
