@@ -31,6 +31,8 @@ export const createEmployeeSchema = z.object({
     .string()
     .min(2, "이름은 2자 이상이어야 합니다.")
     .max(10, "이름 길이가 너무 깁니다."),
+  email: z.string().email("올바른 이메일 형식이 아닙니다."),
+  role: z.enum(["admin", "user"]).default("user"),
   organizationCode: z.string().min(1, "소속 부서를 선택하세요."),
   positionCode: z.string().min(1, "직급을 선택하세요."),
   applyDate: z.coerce.date(),

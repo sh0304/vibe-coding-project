@@ -2,24 +2,43 @@ import { prisma } from "@/lib/prisma";
 
 export const EmployeeService = {
   /**
-   * 신규 사원을 등록합니다.
+   * 신규 사원을 등록하고 로그인 계정(User)을 함께 생성합니다.
    */
   async createEmployee(params: {
     name: string;
+    email: string;
+    role: "admin" | "user";
     organizationCode: string;
     positionCode: string;
     applyDate: Date;
   }) {
     const employeeCode = `EMP${Math.floor(1000 + Math.random() * 9000)}`;
-    return await prisma.employee.create({
-      data: {
-        employeeCode,
-        name: params.name,
-        organizationCode: params.organizationCode,
-        position: params.positionCode,
-        validFrom: params.applyDate,
-        isActive: true,
-      },
+
+    return await prisma.$transaction(async (tx) => {
+      // 1. Employee 생성
+      const employee = await tx.employee.create({
+        data: {
+          employeeCode,
+          name: params.name,
+          organizationCode: params.organizationCode,
+          position: params.positionCode,
+          validFrom: params.applyDate,
+          isActive: true,
+        },
+      });
+
+      // 2. User 생성 (로그인 계정)
+      await tx.user.create({
+        data: {
+          email: params.email,
+          password: "password123", // POC용 기본 비밀번호
+          name: params.name,
+          role: params.role,
+          employeeCode: employeeCode,
+        },
+      });
+
+      return employee;
     });
   },
 

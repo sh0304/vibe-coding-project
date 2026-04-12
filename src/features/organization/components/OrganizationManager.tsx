@@ -464,12 +464,14 @@ function NewOrgPanel({ orgList, isPending, startTransition, onSuccess, onError, 
 function NewEmployeePanel({ orgList, positions, isPending, startTransition, onSuccess, onError, onCancel }: any) {
   const [orgCode, setOrgCode] = useState('');
   const [posCode, setPosCode] = useState('');
+  const [role, setRole] = useState('user');
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     formData.set('organizationCode', orgCode);
     formData.set('positionCode', posCode);
+    formData.set('role', role);
     startTransition(async () => {
       const res = await createEmployee(formData);
       if (res.success) onSuccess();
@@ -494,6 +496,24 @@ function NewEmployeePanel({ orgList, positions, isPending, startTransition, onSu
             <div className="space-y-2">
               <Label className="text-sm font-bold text-slate-700">사원 이름</Label>
               <Input name="name" placeholder="이름을 입력하세요" required className="h-10 border-slate-200" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-bold text-slate-700">이메일 (로그인 ID)</Label>
+              <Input name="email" type="email" placeholder="example@company.com" required className="h-10 border-slate-200" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-bold text-slate-700">시스템 권한</Label>
+              <Select value={role} onValueChange={(val) => setRole(val || 'user')}>
+                <SelectTrigger className="h-10 w-full bg-white border-slate-200">
+                  <SelectValue>
+                    {role === 'admin' ? '관리자 (Admin)' : '사용자 (일반)'}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">사용자 (일반)</SelectItem>
+                  <SelectItem value="admin">관리자 (Admin)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label className="text-sm font-bold text-slate-700">소속 부서</Label>
@@ -530,6 +550,7 @@ function NewEmployeePanel({ orgList, positions, isPending, startTransition, onSu
               <Input name="applyDate" type="date" required className="h-10 border-slate-200" defaultValue={new Date().toISOString().split('T')[0]} />
             </div>
           </div>
+          <p className="text-[10px] text-slate-400 font-medium italic">※ 초기 비밀번호는 <span className="text-indigo-600 font-bold">password123</span>으로 생성됩니다.</p>
           <div className="flex justify-end pt-4 border-t">
             <Button type="submit" disabled={isPending} className="bg-amber-600 hover:bg-amber-500 font-bold px-8 h-10 text-white shadow-lg shadow-amber-100">사원 등록하기</Button>
           </div>

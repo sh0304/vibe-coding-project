@@ -128,11 +128,13 @@ export async function createEmployee(
     }
   }
 
-  const { name, organizationCode, positionCode, applyDate } = parsed.data
+  const { name, email, role, organizationCode, positionCode, applyDate } = parsed.data
 
   try {
     const emp = await EmployeeService.createEmployee({
       name,
+      email,
+      role,
       organizationCode,
       positionCode,
       applyDate,
