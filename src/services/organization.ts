@@ -4,11 +4,30 @@ import { TreeNode } from "@/features/organization/components/OrganizationTree";
 export const OrganizationService = {
   /**
    * 전체 조직/사원 트리 데이터를 구성합니다 (공통 로직)
+   * date 파라미터가 있으면 해당 시점의 트리를, 없으면 현재 시점의 트리를 반환합니다.
    */
-  async getOrganizationTree(): Promise<TreeNode[]> {
+  async getOrganizationTree(date: Date = new Date()): Promise<TreeNode[]> {
     const [orgs, employees, positions] = await Promise.all([
-      prisma.organization.findMany({ where: { isActive: true } }),
-      prisma.employee.findMany({ where: { isActive: true } }),
+      // 해당 시점에 유효한 부서 (SCD Type 2)
+      prisma.organization.findMany({
+        where: {
+          AND: [
+            { validFrom: { lte: date } },
+            { OR: [{ validTo: null }, { validTo: { gte: date } }] },
+            { deletedAt: null }
+          ]
+        }
+      }),
+      // 해당 시점에 유효한 사원 (SCD Type 2)
+      prisma.employee.findMany({
+        where: {
+          AND: [
+            { validFrom: { lte: date } },
+            { OR: [{ validTo: null }, { validTo: { gte: date } }] },
+            { deletedAt: null }
+          ]
+        }
+      }),
       prisma.position.findMany({ where: { isActive: true }, orderBy: { level: 'asc' } }),
     ]);
 

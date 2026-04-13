@@ -10,7 +10,11 @@ export const StatisticsService = {
    * 특정 시점 기준 부서별 인원 및 예산 집행 통계 산출
    * SCD Type 2 로직을 통해 과거 시점의 조직/인원 구성을 정확히 반영함
    */
-  async getOrganizationStats(targetDate: Date): Promise<OrganizationStat[]> {
+   async getOrganizationStats(date: Date): Promise<OrganizationStat[]> {
+    // 조회 시점 보정: 해당 날짜의 끝 시각으로 설정하여 당일 변경분 포함
+    const targetDate = new Date(date);
+    targetDate.setHours(23, 59, 59, 999);
+
     // 1. 활성 예산 정책 조회
     const policies = await prisma.budgetPolicy.findMany({
       where: { isActive: true }
@@ -89,7 +93,11 @@ export const StatisticsService = {
   /**
    * 특정 부서의 사원별 상세 집행 통계 조회
    */
-  async getTeamMemberStats(orgCode: string, targetDate: Date): Promise<TeamDetailStat> {
+  async getTeamMemberStats(orgCode: string, date: Date): Promise<TeamDetailStat> {
+    // 조회 시점 보정: 해당 날짜의 끝 시각으로 설정
+    const targetDate = new Date(date);
+    targetDate.setHours(23, 59, 59, 999);
+
     // 1. 기초 데이터 (정책, 조직 정보)
     const [policies, org, positions] = await Promise.all([
       prisma.budgetPolicy.findMany({ where: { isActive: true } }),

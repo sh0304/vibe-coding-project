@@ -48,6 +48,8 @@ export async function createOrganization(
     })
 
     revalidatePath("/admin/organization")
+    revalidatePath("/statistics")
+    revalidatePath("/", "layout")
     return { success: true, data: org }
   } catch (e: any) {
     console.error(e)
@@ -86,6 +88,8 @@ export async function updateOrganizationHistory(
     })
 
     revalidatePath("/admin/organization")
+    revalidatePath("/statistics")
+    revalidatePath("/", "layout")
     return { success: true, data: result }
   } catch (e: any) {
     console.error(e)
@@ -100,6 +104,8 @@ export async function deleteOrganization(code: string): Promise<ActionResult> {
   try {
     await OrganizationService.deleteOrganization(code)
     revalidatePath("/admin/organization")
+    revalidatePath("/statistics")
+    revalidatePath("/", "layout")
     return { success: true }
   } catch (e: any) {
     console.error(e)
@@ -141,6 +147,8 @@ export async function createEmployee(
     })
 
     revalidatePath("/admin/organization")
+    revalidatePath("/statistics")
+    revalidatePath("/", "layout")
     return { success: true, data: emp }
   } catch (e: any) {
     console.error(e)
@@ -178,6 +186,8 @@ export async function transferEmployee(
     })
 
     revalidatePath("/admin/organization")
+    revalidatePath("/statistics")
+    revalidatePath("/", "layout")
     return { success: true, data: result }
   } catch (e: any) {
     console.error(e)

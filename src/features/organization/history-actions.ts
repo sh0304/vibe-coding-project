@@ -4,11 +4,12 @@ import { prisma } from "@/lib/prisma"
 
 export async function getOrganizationSnapshot(dateStr: string) {
   try {
-    // 해당 날짜의 시작 시점(00:00:00)을 기준으로 조회하여 경계값 밀리초 오차 방지
+    // 해당 날짜의 종료 시점(23:59:59)을 기준으로 조회하여 
+    // 당일 입사자/변경자까지 모두 포함되도록 함
     const targetDate = new Date(dateStr)
-    targetDate.setHours(0, 0, 0, 0)
+    targetDate.setHours(23, 59, 59, 999)
 
-    console.log(`[getOrganizationSnapshot] Querying for date: ${targetDate.toISOString()}`);
+    console.log(`[getOrganizationSnapshot] Querying for date (End of day): ${targetDate.toISOString()}`);
 
     const orgsPromise = prisma.organization.findMany({
       where: {
